@@ -23,6 +23,9 @@ local personagem = jogador.Character or jogador.CharacterAdded:Wait()
 local mainGui = script.Parent
 local inventarioFrame = mainGui:WaitForChild("InventarioFrame")
 
+-- Referência ao sistema de construção
+local sistemaConstrucao = script.Parent:FindFirstChild("SistemaConstrucao")
+
 -- Eventos Remotos
 local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
 local atualizarInventarioEvent = RemoteEvents:WaitForChild("AtualizarInventario")
@@ -47,7 +50,9 @@ local estadoInventario = {
     modoConstrucao = false, -- Se está em modo de construção
     itemArrastando = nil, -- Item sendo arrastado
     gridCelulas = {}, -- Células do grid visual
-    slotSelecionado = nil -- Slot atualmente selecionado
+    slotSelecionado = nil, -- Slot atualmente selecionado
+    previewItem = nil, -- Referência ao preview do item
+    conexoes = {} -- Armazena conexões para limpeza
 }
 
 -- Mapeamento de categorias
@@ -89,66 +94,99 @@ local function MostrarNotificacao(titulo, mensagem, tipo, duracao)
     duracao = duracao or 3 -- Duração padrão de 3 segundos
     
     -- Criar notificação na interface
-    local notificacoesFrame = mainGui:WaitForChild("NotificacoesFrame")
-    local templateNotificacao = notificacoesFrame:WaitForChild("TemplateNotificacao"):Clone()
-    templateNotificacao.Name = "Notificacao_" .. os.time()
-    templateNotificacao.Visible = true
+    local notificacoesFrame = mainGui:FindFirstChild("NotificacoesFrame")
+    if not notificacoesFrame then
+        -- Criar frame de notificações se não existir
+        notificacoesFrame = Instance.new("Frame")
+        notificacoesFrame.Name = "NotificacoesFrame"
+        notificacoesFrame.Size = UDim2.new(0.3, 0, 1, 0)
+        notificacoesFrame.Position = UDim2.new(0.7, 0, 0, 0)
+        notificacoesFrame.BackgroundTransparency = 1
+        notificacoesFrame.Parent = mainGui
+    end
+    
+    local templateNotificacao = notificacoesFrame:FindFirstChild("TemplateNotificacao")
+    if not templateNotificacao then
+        -- Criar template se não existir
+        templateNotificacao = Instance.new("Frame")
+        templateNotificacao.Name = "TemplateNotificacao"
+        templateNotificacao.Size = UDim2.new(0.9, 0, 0, 70)
+        templateNotificacao.BackgroundColor3 = Color3.fromRGB(33, 150, 243)
+        templateNotificacao.BorderSizePixel = 0
+        templateNotificacao.Visible = false
+        templateNotificacao.Parent = notificacoesFrame
+    end
+    
+    local novaNotificacao = templateNotificacao:Clone()
+    novaNotificacao.Name = "Notificacao_" .. os.time()
+    novaNotificacao.Visible = true
     
     -- Configurar aparência baseado no tipo
     if tipo == "sucesso" then
-        templateNotificacao.BackgroundColor3 = Color3.fromRGB(76, 175, 80) -- Verde
+        novaNotificacao.BackgroundColor3 = Color3.fromRGB(76, 175, 80) -- Verde
     elseif tipo == "erro" then
-        templateNotificacao.BackgroundColor3 = Color3.fromRGB(211, 47, 47) -- Vermelho
+        novaNotificacao.BackgroundColor3 = Color3.fromRGB(211, 47, 47) -- Vermelho
     else
-        templateNotificacao.BackgroundColor3 = Color3.fromRGB(33, 150, 243) -- Azul (info)
+        novaNotificacao.BackgroundColor3 = Color3.fromRGB(33, 150, 243) -- Azul (info)
     end
     
     -- Configurar texto
-    local tituloLabel = Instance.new("TextLabel")
-    tituloLabel.Name = "Titulo"
-    tituloLabel.Size = UDim2.new(1, 0, 0, 20)
-    tituloLabel.Position = UDim2.new(0, 0, 0, 0)
-    tituloLabel.BackgroundTransparency = 1
-    tituloLabel.TextColor3 = Color3.new(1, 1, 1)
-    tituloLabel.TextSize = 14
-    tituloLabel.Font = Enum.Font.SourceSansBold
+    local tituloLabel = novaNotificacao:FindFirstChild("Titulo")
+    if not tituloLabel then
+        tituloLabel = Instance.new("TextLabel")
+        tituloLabel.Name = "Titulo"
+        tituloLabel.Size = UDim2.new(1, 0, 0, 20)
+        tituloLabel.Position = UDim2.new(0, 0, 0, 0)
+        tituloLabel.BackgroundTransparency = 1
+        tituloLabel.TextColor3 = Color3.new(1, 1, 1)
+        tituloLabel.TextSize = 14
+        tituloLabel.Font = Enum.Font.SourceSansBold
+        tituloLabel.Parent = novaNotificacao
+    end
     tituloLabel.Text = titulo
-    tituloLabel.Parent = templateNotificacao
     
-    local mensagemLabel = Instance.new("TextLabel")
-    mensagemLabel.Name = "Mensagem"
-    mensagemLabel.Size = UDim2.new(1, 0, 0, 40)
-    mensagemLabel.Position = UDim2.new(0, 0, 0, 20)
-    mensagemLabel.BackgroundTransparency = 1
-    mensagemLabel.TextColor3 = Color3.new(1, 1, 1)
-    mensagemLabel.TextSize = 12
-    mensagemLabel.Font = Enum.Font.SourceSans
+    local mensagemLabel = novaNotificacao:FindFirstChild("Mensagem")
+    if not mensagemLabel then
+        mensagemLabel = Instance.new("TextLabel")
+        mensagemLabel.Name = "Mensagem"
+        mensagemLabel.Size = UDim2.new(1, 0, 0, 40)
+        mensagemLabel.Position = UDim2.new(0, 0, 0, 20)
+        mensagemLabel.BackgroundTransparency = 1
+        mensagemLabel.TextColor3 = Color3.new(1, 1, 1)
+        mensagemLabel.TextSize = 12
+        mensagemLabel.Font = Enum.Font.SourceSans
+        mensagemLabel.TextWrapped = true
+        mensagemLabel.Parent = novaNotificacao
+    end
     mensagemLabel.Text = mensagem
-    mensagemLabel.TextWrapped = true
-    mensagemLabel.Parent = templateNotificacao
     
     -- Posicionar notificação
-    templateNotificacao.Position = UDim2.new(1, -20, 1, -80)
-    templateNotificacao.AnchorPoint = Vector2.new(1, 1)
-    templateNotificacao.Parent = notificacoesFrame
+    novaNotificacao.Position = UDim2.new(1, 300, 1, -80) -- Começa fora da tela
+    novaNotificacao.AnchorPoint = Vector2.new(1, 1)
+    novaNotificacao.Parent = notificacoesFrame
     
     -- Animação de entrada
-    templateNotificacao.Position = UDim2.new(1, 300, 1, -80) -- Começa fora da tela
-    local tweenEntrada = CriarTween(templateNotificacao, {Position = UDim2.new(1, -20, 1, -80)}, 0.5)
+    local tweenEntrada = CriarTween(novaNotificacao, {Position = UDim2.new(1, -20, 1, -80)}, 0.5)
     tweenEntrada:Play()
     
     -- Animação de saída após duração
     task.delay(duracao, function()
-        local tweenSaida = CriarTween(templateNotificacao, {Position = UDim2.new(1, 300, 1, -80)}, 0.5)
+        local tweenSaida = CriarTween(novaNotificacao, {Position = UDim2.new(1, 300, 1, -80)}, 0.5)
         tweenSaida:Play()
         tweenSaida.Completed:Connect(function()
-            templateNotificacao:Destroy()
+            novaNotificacao:Destroy()
         end)
     end)
 end
 
 -- Função para criar a interface básica do inventário
 local function CriarInterfaceInventario()
+    -- Verificar se o inventarioFrame existe
+    if not inventarioFrame then
+        warn("InventarioGui: Frame do inventário não encontrado!")
+        return
+    end
+    
     -- Limpar interface existente
     for _, item in pairs(inventarioFrame:GetChildren()) do
         if item:IsA("Frame") or item:IsA("ScrollingFrame") or item:IsA("TextButton") then
@@ -191,11 +229,12 @@ local function CriarInterfaceInventario()
     campoPesquisa.Parent = barraPesquisa
     
     -- Conectar evento de pesquisa
-    campoPesquisa:GetPropertyChangedSignal("Text"):Connect(function()
+    local conexaoPesquisa = campoPesquisa:GetPropertyChangedSignal("Text"):Connect(function()
         estadoInventario.termoPesquisa = campoPesquisa.Text:lower()
         AtualizarItensFiltrados()
         AtualizarGridInventario()
     end)
+    table.insert(estadoInventario.conexoes, conexaoPesquisa)
     
     -- Criar dropdown de ordenação
     local dropdownOrdenacao = Instance.new("Frame")
@@ -259,18 +298,20 @@ local function CriarInterfaceInventario()
         botaoOpcao.ZIndex = 6
         botaoOpcao.Parent = menuOrdenacao
         
-        botaoOpcao.MouseButton1Click:Connect(function()
+        local conexaoOpcao = botaoOpcao.MouseButton1Click:Connect(function()
             estadoInventario.ordenacao = opcao.id
             botaoOrdenacao.Text = opcao.nome .. " ▼"
             menuOrdenacao.Visible = false
             AtualizarItensFiltrados()
             AtualizarGridInventario()
         end)
+        table.insert(estadoInventario.conexoes, conexaoOpcao)
     end
     
-    botaoOrdenacao.MouseButton1Click:Connect(function()
+    local conexaoOrdenacao = botaoOrdenacao.MouseButton1Click:Connect(function()
         menuOrdenacao.Visible = not menuOrdenacao.Visible
     end)
+    table.insert(estadoInventario.conexoes, conexaoOrdenacao)
     
     -- Criar botões de categorias
     local categoriaFrame = Instance.new("Frame")
@@ -301,9 +342,10 @@ local function CriarInterfaceInventario()
         botoesCategorias[categoriaId] = botaoCategoria
         
         -- Conectar evento de clique
-        botaoCategoria.MouseButton1Click:Connect(function()
+        local conexaoCategoria = botaoCategoria.MouseButton1Click:Connect(function()
             SelecionarCategoria(categoriaId, botoesCategorias)
         end)
+        table.insert(estadoInventario.conexoes, conexaoCategoria)
     end
     
     -- Criar grid de inventário com scroll
@@ -403,19 +445,21 @@ local function CriarInterfaceInventario()
     botaoFechar.BorderSizePixel = 0
     botaoFechar.Parent = inventarioFrame
     
-    botaoFechar.MouseButton1Click:Connect(function()
+    local conexaoFechar = botaoFechar.MouseButton1Click:Connect(function()
         inventarioFrame.Visible = false
         if estadoInventario.modoConstrucao then
             DesativarModoConstrucao()
         end
     end)
+    table.insert(estadoInventario.conexoes, conexaoFechar)
     
     -- Conectar botão de colocar item
-    botaoColocar.MouseButton1Click:Connect(function()
+    local conexaoColocar = botaoColocar.MouseButton1Click:Connect(function()
         if estadoInventario.itemSelecionado then
             AtivarModoConstrucao(estadoInventario.itemSelecionado)
         end
     end)
+    table.insert(estadoInventario.conexoes, conexaoColocar)
     
     -- Salvar referências importantes
     estadoInventario.gridFrame = gridFrame
@@ -433,6 +477,9 @@ end
 
 -- Função para selecionar uma categoria
 function SelecionarCategoria(categoriaId, botoesCategorias)
+    -- Verificar se os botões existem
+    if not botoesCategorias then return end
+    
     -- Atualizar visual dos botões
     for id, botao in pairs(botoesCategorias) do
         if id == categoriaId then
@@ -474,7 +521,7 @@ function AtualizarItensFiltrados()
         end)
     elseif estadoInventario.ordenacao == "preco" then
         table.sort(estadoInventario.itensFiltrados, function(a, b)
-            return a.item.preco > b.item.preco
+            return (a.item.preco or 0) > (b.item.preco or 0)
         end)
     end
 end
@@ -482,6 +529,7 @@ end
 -- Função para atualizar o grid visual do inventário
 function AtualizarGridInventario()
     local gridFrame = estadoInventario.gridFrame
+    if not gridFrame then return end
     
     -- Limpar grid atual
     for _, celula in pairs(estadoInventario.gridCelulas) do
@@ -546,15 +594,22 @@ function AtualizarGridInventario()
         botaoSelecionar.Parent = celula
         
         -- Conectar evento de clique
-        botaoSelecionar.MouseButton1Click:Connect(function()
+        local conexaoSelecionar = botaoSelecionar.MouseButton1Click:Connect(function()
             SelecionarItem(itemId, item)
         end)
+        table.insert(estadoInventario.conexoes, conexaoSelecionar)
         
         -- Configurar drag and drop
         ConfigurarDragDrop(celula, itemId, item)
         
         -- Adicionar à lista de células
         table.insert(estadoInventario.gridCelulas, celula)
+        
+        -- Adicionar atributos para uso pelo DragDropSystem
+        celula:SetAttribute("ItemId", itemId)
+        celula:SetAttribute("Nome", item.nome)
+        celula:SetAttribute("Descricao", item.descricao)
+        celula:SetAttribute("Categoria", item.categoria)
     end
     
     -- Atualizar tamanho do canvas
@@ -565,6 +620,14 @@ end
 -- Função para selecionar um item
 function SelecionarItem(itemId, item)
     estadoInventario.itemSelecionado = {id = itemId, info = item}
+    
+    -- Verificar se os elementos da interface existem
+    if not estadoInventario.detalhesFrame or not estadoInventario.itemImagem or 
+       not estadoInventario.itemNome or not estadoInventario.itemDescricao or 
+       not estadoInventario.itemQuantidade or not estadoInventario.botaoColocar then
+        warn("InventarioGui: Elementos da interface de detalhes não encontrados!")
+        return
+    end
     
     -- Atualizar detalhes
     estadoInventario.itemImagem.Image = item.icone
@@ -615,7 +678,7 @@ function ConfigurarDragDrop(celula, itemId, item)
     end
     
     -- Eventos de drag
-    celula.BotaoSelecionar.MouseButton1Down:Connect(function(x, y)
+    local conexaoMouseDown = celula.BotaoSelecionar.MouseButton1Down:Connect(function(x, y)
         if item.quantidade <= 0 then return end
         
         dragando = true
@@ -634,32 +697,9 @@ function ConfigurarDragDrop(celula, itemId, item)
         SelecionarItem(itemId, item)
         estadoInventario.itemArrastando = {id = itemId, info = item}
     end)
+    table.insert(estadoInventario.conexoes, conexaoMouseDown)
     
-    -- Mover o ícone de drag com o mouse
-    UserInputService.InputChanged:Connect(function(input)
-        if dragando and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local mousePos = input.Position
-            dragIcone.Position = UDim2.new(0, mousePos.X - dragOffset.X, 0, mousePos.Y - dragOffset.Y)
-        end
-    end)
-    
-    -- Finalizar drag
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 and dragando then
-            dragando = false
-            
-            if dragIcone then
-                dragIcone.Visible = false
-            end
-            
-            -- Se estiver no modo construção, tentar colocar o item
-            if estadoInventario.modoConstrucao and estadoInventario.itemArrastando then
-                TentarColocarItem(estadoInventario.itemArrastando.id)
-            end
-            
-            estadoInventario.itemArrastando = nil
-        end
-    end)
+    -- Finalizar drag é gerenciado globalmente pelo UserInputService
 end
 
 -- Função para ativar o modo de construção
@@ -677,9 +717,18 @@ function AtivarModoConstrucao(itemInfo)
     estadoInventario.itemSelecionado = itemInfo
     
     -- Fechar o inventário
-    inventarioFrame.Visible = false
+    if inventarioFrame then
+        inventarioFrame.Visible = false
+    end
     
-    -- Mostrar notificação
+    -- Usar o sistema de construção avançado se disponível
+    if sistemaConstrucao and sistemaConstrucao.AtivarModoConstrucao then
+        -- Chamar a função do sistema de construção avançado
+        sistemaConstrucao.AtivarModoConstrucao(itemInfo.id)
+        return
+    end
+    
+    -- Fallback para sistema básico se o avançado não estiver disponível
     MostrarNotificacao("Modo Construção", "Clique em qualquer lugar da sua ilha para colocar " .. itemInfo.info.nome, "info", 5)
     
     -- Criar preview do item
@@ -695,7 +744,7 @@ function AtivarModoConstrucao(itemInfo)
     end)
     
     -- Salvar conexão para desconectar depois
-    estadoInventario.conexaoClique = conexaoClique
+    table.insert(estadoInventario.conexoes, conexaoClique)
 end
 
 -- Função para desativar o modo de construção
@@ -704,11 +753,20 @@ function DesativarModoConstrucao()
     
     estadoInventario.modoConstrucao = false
     
-    -- Desconectar evento de clique
-    if estadoInventario.conexaoClique then
-        estadoInventario.conexaoClique:Disconnect()
-        estadoInventario.conexaoClique = nil
+    -- Usar o sistema de construção avançado se disponível
+    if sistemaConstrucao and sistemaConstrucao.DesativarModoConstrucao then
+        sistemaConstrucao.DesativarModoConstrucao()
+        return
     end
+    
+    -- Fallback para sistema básico
+    -- Desconectar eventos
+    for i, conexao in ipairs(estadoInventario.conexoes) do
+        if conexao.Connected then
+            conexao:Disconnect()
+        end
+    end
+    estadoInventario.conexoes = {}
     
     -- Remover preview do item
     RemoverPreviewItem()
@@ -719,27 +777,110 @@ end
 
 -- Função para criar preview do item
 function CriarPreviewItem(itemInfo)
-    -- Esta função seria implementada para mostrar um preview do item
-    -- seguindo o mouse do jogador antes de colocar
+    -- Usar o sistema de construção avançado se disponível
+    if sistemaConstrucao and sistemaConstrucao.CriarPreviewItem then
+        sistemaConstrucao.CriarPreviewItem(itemInfo.id)
+        return
+    end
+    
+    -- Sistema básico de preview fallback
     print("Preview criado para: " .. itemInfo.info.nome)
     
-    -- Implementação futura:
-    -- 1. Criar um modelo 3D do item
-    -- 2. Fazer o modelo seguir o mouse
-    -- 3. Mostrar em verde se pode colocar, vermelho se não pode
+    -- Tentar criar um modelo 3D básico
+    local ServerStorage = game:GetService("ServerStorage")
+    local modeloItem = nil
+    
+    -- Verificar se existe um módulo ModelosItens para obter o modelo
+    local ModelosItens = require(ServerStorage:FindFirstChild("Modelos"):FindFirstChild("ModelosItens"))
+    if ModelosItens then
+        modeloItem = ModelosItens:ObterModelo(itemInfo.id, 10)
+    end
+    
+    -- Se não conseguir obter o modelo, criar um cubo básico
+    if not modeloItem then
+        modeloItem = Instance.new("Part")
+        modeloItem.Size = Vector3.new(2, 1, 2)
+        modeloItem.Anchored = true
+        modeloItem.CanCollide = false
+        modeloItem.Transparency = 0.5
+        modeloItem.Material = Enum.Material.SmoothPlastic
+        modeloItem.BrickColor = BrickColor.new("Bright green")
+    else
+        -- Configurar transparência para todos os componentes do modelo
+        for _, parte in pairs(modeloItem:GetDescendants()) do
+            if parte:IsA("BasePart") then
+                parte.Transparency = 0.5
+                parte.CanCollide = false
+                parte.Anchored = true
+            end
+        end
+    end
+    
+    -- Adicionar ao workspace
+    modeloItem.Parent = workspace
+    estadoInventario.previewItem = modeloItem
+    
+    -- Atualizar posição do preview com o mouse
+    local conexaoRender = game:GetService("RunService").RenderStepped:Connect(function()
+        if not estadoInventario.previewItem then return end
+        
+        local mouse = jogador:GetMouse()
+        local raio = workspace:Raycast(mouse.UnitRay.Origin, mouse.UnitRay.Direction * 500)
+        
+        if raio then
+            local posicao = raio.Position + Vector3.new(0, 1, 0)
+            
+            if modeloItem:IsA("Model") and modeloItem.PrimaryPart then
+                modeloItem:SetPrimaryPartCFrame(CFrame.new(posicao))
+            else
+                modeloItem.Position = posicao
+            end
+            
+            -- Verificar se a posição é válida
+            local valido = true -- Implementar verificação real
+            
+            -- Atualizar cor baseado na validade
+            local cor = valido and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+            
+            if modeloItem:IsA("Model") then
+                for _, parte in pairs(modeloItem:GetDescendants()) do
+                    if parte:IsA("BasePart") then
+                        parte.Color = cor
+                    end
+                end
+            else
+                modeloItem.Color = cor
+            end
+        end
+    end)
+    
+    table.insert(estadoInventario.conexoes, conexaoRender)
 end
 
 -- Função para remover preview do item
 function RemoverPreviewItem()
-    -- Esta função removeria o preview do item
-    print("Preview removido")
+    -- Usar o sistema de construção avançado se disponível
+    if sistemaConstrucao and sistemaConstrucao.RemoverPreviewItem then
+        sistemaConstrucao.RemoverPreviewItem()
+        return
+    end
     
-    -- Implementação futura:
-    -- 1. Destruir o modelo 3D do preview
-}
+    -- Sistema básico de preview fallback
+    if estadoInventario.previewItem and estadoInventario.previewItem.Parent then
+        estadoInventario.previewItem:Destroy()
+        estadoInventario.previewItem = nil
+    end
+end
 
 -- Função para tentar colocar um item
 function TentarColocarItem(itemId)
+    -- Usar o sistema de construção avançado se disponível
+    if sistemaConstrucao and sistemaConstrucao.TentarColocarItem then
+        sistemaConstrucao.TentarColocarItem(itemId)
+        return
+    end
+    
+    -- Sistema básico fallback
     if not estadoInventario.modoConstrucao then return end
     
     local item = estadoInventario.itens[itemId]
@@ -758,7 +899,7 @@ function TentarColocarItem(itemId)
     end
     
     local posicao = raio.Position
-    local rotacao = CFrame.new(posicao)
+    local rotacao = 0 -- Rotação padrão
     
     -- Enviar solicitação para o servidor
     print("Tentando colocar item: " .. itemId .. " na posição: " .. tostring(posicao))
@@ -766,7 +907,7 @@ function TentarColocarItem(itemId)
     
     -- Desativar modo construção após colocar
     DesativarModoConstrucao()
-}
+end
 
 -- Função para atualizar o inventário com dados do servidor
 local function AtualizarInventario(dadosInventario)
@@ -782,11 +923,13 @@ local function AtualizarInventario(dadosInventario)
         if estadoInventario.itens[itemId] then
             SelecionarItem(itemId, estadoInventario.itens[itemId])
         else
-            estadoInventario.detalhesFrame.Visible = false
+            if estadoInventario.detalhesFrame then
+                estadoInventario.detalhesFrame.Visible = false
+            end
             estadoInventario.itemSelecionado = nil
         end
     end
-}
+end
 
 -- Função para processar resposta de colocação de item
 local function ProcessarRespostaColocacao(sucesso, itemId, novoInventario, mensagem)
@@ -800,11 +943,40 @@ local function ProcessarRespostaColocacao(sucesso, itemId, novoInventario, mensa
     else
         MostrarNotificacao("Erro", mensagem or "Não foi possível colocar o item.", "erro")
     end
-}
+end
+
+-- Função para limpar conexões e recursos
+local function LimparRecursos()
+    -- Desconectar todos os eventos
+    for _, conexao in ipairs(estadoInventario.conexoes) do
+        if conexao.Connected then
+            conexao:Disconnect()
+        end
+    end
+    estadoInventario.conexoes = {}
+    
+    -- Remover preview se existir
+    RemoverPreviewItem()
+    
+    print("📱 Inventário: Recursos limpos com sucesso!")
+end
 
 -- Função para inicializar o inventário
 local function Inicializar()
     print("📱 Inventário: Inicializando interface...")
+    
+    -- Verificar se o inventarioFrame existe
+    if not inventarioFrame then
+        warn("InventarioGui: Frame do inventário não encontrado! Criando um novo...")
+        inventarioFrame = Instance.new("Frame")
+        inventarioFrame.Name = "InventarioFrame"
+        inventarioFrame.Size = UDim2.new(0.8, 0, 0.8, 0)
+        inventarioFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
+        inventarioFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        inventarioFrame.BorderSizePixel = 0
+        inventarioFrame.Visible = false
+        inventarioFrame.Parent = mainGui
+    end
     
     -- Criar a interface básica
     CriarInterfaceInventario()
@@ -841,6 +1013,33 @@ local function Inicializar()
             icone = "rbxassetid://6797380329",
             categoria = "moveis",
             quantidade = 2
+        },
+        cadeira_simples = {
+            id = "cadeira_simples",
+            nome = "Cadeira Simples",
+            descricao = "Uma cadeira básica e confortável.",
+            preco = 80,
+            icone = "rbxassetid://6797380438",
+            categoria = "moveis",
+            quantidade = 4
+        },
+        flor_azul = {
+            id = "flor_azul",
+            nome = "Flores Azuis",
+            descricao = "Um canteiro de belas flores azuis.",
+            preco = 30,
+            icone = "rbxassetid://6797380765",
+            categoria = "plantas",
+            quantidade = 10
+        },
+        estatua_pequena = {
+            id = "estatua_pequena",
+            nome = "Estátua de Pedra",
+            descricao = "Uma pequena estátua decorativa.",
+            preco = 200,
+            icone = "rbxassetid://6797380223",
+            categoria = "decoracoes",
+            quantidade = 1
         }
     }
     
@@ -851,8 +1050,11 @@ local function Inicializar()
     -- Isso seria implementado quando o servidor tiver o sistema pronto
     -- atualizarInventarioEvent:FireServer()
     
+    -- Limpar recursos quando o script for destruído
+    script.Destroyed:Connect(LimparRecursos)
+    
     print("📱 Inventário: Interface inicializada com sucesso!")
-}
+end
 
 -- Iniciar quando o script carregar
 Inicializar()
