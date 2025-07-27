@@ -23,6 +23,7 @@ local INTERVALO_ATUALIZACAO_GUI = 0.5 -- Intervalo em segundos para atualizar a 
 -- Eventos Remotos
 local RemoteEvents
 local AtualizarMoedasEvent
+local ComprarItemEvent -- < novo evento
 
 -- Configurações de recompensas
 local RECOMPENSAS = {
@@ -37,6 +38,31 @@ local RECOMPENSAS = {
 -- Histórico de transações para auditoria e prevenção de fraudes
 local historicoTransacoes = {}
 
+--[[-------------------------------------------------------------------------
+    Catálogo de preços
+    NOTA: deve ser mantido em **servidor** para evitar exploits.
+---------------------------------------------------------------------------]]
+local CATALOGO_ITENS = {
+    -- decoracoes
+    cerca_madeira     = 50,
+    fonte_agua        = 250,
+    estatua_pequena   = 150,
+    -- moveis
+    mesa_madeira      = 120,
+    cadeira_simples   = 80,
+    cama_madeira      = 200,
+    -- plantas
+    arvore_pequena    = 100,
+    flor_azul         = 50,
+    arbusto_decorativo= 75,
+    -- especiais
+    fonte_magica      = 500,
+    estatua_dragao    = 750
+}
+
+-- Inventário básico na memória {[userId] = { [itemId] = quantidade }}
+local inventarios = {}
+
 --[[
     Inicializa o módulo de economia
     Configura eventos remotos e outras dependências
@@ -47,6 +73,7 @@ function EconomiaModule.Inicializar()
     -- Obter referência aos eventos remotos
     RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
     AtualizarMoedasEvent = RemoteEvents:WaitForChild("AtualizarMoedas")
+    ComprarItemEvent   = RemoteEvents:WaitForChild("ComprarItem") -- criado no Studio
     
     -- Configurar eventos de comunicação com o cliente
     AtualizarMoedasEvent.OnServerEvent:Connect(function(player, acao)
@@ -57,9 +84,75 @@ function EconomiaModule.Inicializar()
     
     -- Configurar sistema de recompensas automáticas
     ConfigurarRecompensasAutomaticas()
+
+    -- Conectar processamento de compras
+    ComprarItemEvent.OnServerEvent:Connect(ProcessarCompraItem)
     
     print("Módulo de economia inicializado com sucesso!")
     return true
+end
+
+--[[-------------------------------------------------------------------------
+    Compra de Itens (servidor recebe do cliente)
+--[[
+    Adiciona itens ao inventário em memória
+    @param userId (number) - ID do jogador
+    @param itemId (string) - ID do item
+    @param quantidade (number) - Quantidade a adicionar (padrão: 1)
+    @return (number) - Quantidade total do item após a adição
+]]
+function AdicionarAoInventario(userId, itemId, quantidade)
+    quantidade = quantidade or 1
+
+    if type(userId) ~= "number" or not itemId then
+        warn("[ECONOMIA] Parâmetros inválidos em AdicionarAoInventario")
+        return 0
+    end
+
+    -- Inicializar inventário do jogador se necessário
+    inventarios[userId] = inventarios[userId] or {}
+    inventarios[userId][itemId] = (inventarios[userId][itemId] or 0) + quantidade
+
+    -- Registrar no histórico (utilizamos quantidade 0 porque não afeta moedas)
+    RegistrarTransacao(userId, "INV_ADD", 0, ("Adicionou ao inventário: %s x%s"):format(itemId, quantidade))
+
+    return inventarios[userId][itemId]
+end
+
+---------------------------------------------------------------------------]]
+function ProcessarCompraItem(player, itemId)
+    if type(itemId) ~= "string" then return end
+
+    local preco = CATALOGO_ITENS[itemId]
+    if not preco then
+        -- Item inexistente – possível exploit
+        warn("[ECONOMIA] Item inválido: " .. tostring(itemId) .. " por " .. player.Name)
+        ComprarItemEvent:FireClient(player, false, itemId, EconomiaModule.ObterMoedas(player),
+            "Item inválido.")
+        return
+    end
+
+    -- Anti-spam: limitar chamadas muito rápidas (1 por 0.3 s)
+    player:SetAttribute("UltimaCompraTick", player:GetAttribute("UltimaCompraTick") or 0)
+    if tick() - player:GetAttribute("UltimaCompraTick") < 0.3 then
+        warn("[ECONOMIA] Spam de compra detectado de " .. player.Name)
+        return
+    end
+    player:SetAttribute("UltimaCompraTick", tick())
+
+    -- Processar compra
+    local sucesso = EconomiaModule.ProcessarCompra(player, preco, itemId)
+    if sucesso then
+        -- Adicionar no inventário
+        AdicionarAoInventario(player.UserId, itemId, 1)
+
+        -- Responder ao cliente
+        ComprarItemEvent:FireClient(player, true, itemId, EconomiaModule.ObterMoedas(player),
+            "Você comprou " .. itemId .. " por " .. preco .. " DreamCoins.")
+    else
+        ComprarItemEvent:FireClient(player, false, itemId, EconomiaModule.ObterMoedas(player),
+            "Moedas insuficientes.")
+    end
 end
 
 --[[
