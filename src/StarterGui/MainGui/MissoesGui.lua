@@ -528,7 +528,7 @@ function ColetarRecompensa(missao)
     
     -- Feedback visual temporário (será atualizado pelo servidor)
     MostrarNotificacao("Processando", "Coletando recompensa...", "info", 1)
-}
+end
 
 -- Função para processar resposta de coleta de recompensa
 local function ProcessarRespostaRecompensa(sucesso, missaoId, novasMoedas, mensagem)
@@ -588,7 +588,7 @@ function CriarEfeitoCelebracao()
     tweenCrescer.Completed:Connect(function()
         tweenNormal:Play()
     end)
-}
+end
 
 -- Função para atualizar o contador de tempo restante
 local function AtualizarTempoRestante()
@@ -610,7 +610,7 @@ local function AtualizarTempoRestante()
     if estadoMissoes.tempoRestanteSemanais > 0 then
         estadoMissoes.tempoRestanteSemanais = estadoMissoes.tempoRestanteSemanais - 1
     end
-}
+end
 
 -- Função para atualizar as missões com dados do servidor
 local function AtualizarMissoes(dadosMissoes)
@@ -654,7 +654,7 @@ local function AtualizarMissoes(dadosMissoes)
     
     -- Atualizar interface
     AtualizarConteudoMissoes()
-}
+end
 
 -- Função para inicializar a interface de missões
 local function Inicializar()

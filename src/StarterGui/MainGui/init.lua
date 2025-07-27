@@ -1,8 +1,8 @@
 --[[
-    MainGui/init_simples.lua
+    MainGui/init.lua
     
-    Script cliente simplificado para gerenciar a interface do jogo "Viva Fantasy Island"
-    Versão básica para testes iniciais, focada em fazer os botões funcionarem.
+    Script cliente para gerenciar a interface do jogo "Viva Fantasy Island"
+    Versão com logs detalhados para debug e correção do problema do inventário
     
     Autor: Factory AI
     Data: 27/07/2025
@@ -30,6 +30,15 @@ local frames = {
     ConfiguracoesFrame = mainGui:WaitForChild("ConfiguracoesFrame")
 }
 
+-- Verificar se todos os frames existem
+for nome, frame in pairs(frames) do
+    if frame then
+        print("📱 GUI: ✅ Frame encontrado: " .. nome)
+    else
+        warn("📱 GUI: ❌ ERRO: Frame não encontrado: " .. nome)
+    end
+end
+
 -- Mapeamento dos botões
 local botoes = {
     BotaoLoja = mainGui:WaitForChild("HUD"):WaitForChild("BotoesMenu"):WaitForChild("BotaoLoja"),
@@ -56,7 +65,10 @@ local menuAberto = nil
 -- Função para fechar todos os menus
 local function FecharTodosMenus()
     for nome, frame in pairs(frames) do
-        frame.Visible = false
+        if frame then
+            frame.Visible = false
+            print("📱 GUI: Frame " .. nome .. " fechado")
+        end
     end
     menuAberto = nil
     print("📱 GUI: Todos os menus fechados")
@@ -68,25 +80,55 @@ local function AlternarMenu(nomeMenu)
     
     local menu = frames[nomeMenu]
     if not menu then
-        warn("📱 GUI: Menu não encontrado: " .. nomeMenu)
+        warn("📱 GUI: ❌ ERRO: Menu não encontrado: " .. nomeMenu)
         return
     end
     
-    -- Se o menu clicado já está aberto, feche-o
-    if menu.Visible then
-        menu.Visible = false
-        menuAberto = nil
-        print("📱 GUI: Menu fechado: " .. nomeMenu)
-        return
-    end
+    print("📱 GUI: Estado atual do menu " .. nomeMenu .. ": Visible = " .. tostring(menu.Visible))
     
-    -- Feche todos os menus primeiro
+    -- CORREÇÃO: Fechar todos os menus primeiro, independente do estado
     FecharTodosMenus()
     
-    -- Abra o menu clicado
+    -- FORÇAR a abertura do menu clicado (não verificar se já está aberto)
     menu.Visible = true
     menuAberto = nomeMenu
-    print("📱 GUI: Menu aberto: " .. nomeMenu)
+    print("📱 GUI: FORÇANDO abertura do menu: " .. nomeMenu)
+    
+    -- Verificação adicional para garantir que o menu foi aberto
+    if menu.Visible then
+        print("📱 GUI: ✅ Menu " .. nomeMenu .. " confirmado como visível")
+    else
+        warn("📱 GUI: ❌ ERRO: Menu " .. nomeMenu .. " não ficou visível após tentativa de abertura!")
+    end
+    
+    -- Tratamento especial para o Inventário
+    if nomeMenu == "InventarioFrame" then
+        print("📱 GUI: Tratamento especial para Inventário - verificando elementos...")
+        
+        -- Verificar se o frame tem filhos
+        local numFilhos = #menu:GetChildren()
+        print("📱 GUI: InventarioFrame tem " .. numFilhos .. " elementos filhos")
+        
+        -- Garantir que está visível
+        menu.Visible = true
+        print("📱 GUI: InventarioFrame.Visible definido como true")
+        
+        -- Se não tiver elementos, criar um texto temporário
+        if numFilhos < 2 then
+            print("📱 GUI: Criando texto temporário no InventarioFrame para debug")
+            local textoTemp = Instance.new("TextLabel")
+            textoTemp.Name = "TextoTemporario"
+            textoTemp.Size = UDim2.new(0.8, 0, 0.2, 0)
+            textoTemp.Position = UDim2.new(0.1, 0, 0.4, 0)
+            textoTemp.BackgroundTransparency = 0.5
+            textoTemp.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            textoTemp.TextColor3 = Color3.new(1, 1, 1)
+            textoTemp.TextSize = 24
+            textoTemp.Font = Enum.Font.SourceSansBold
+            textoTemp.Text = "Inventário - Frame Visível"
+            textoTemp.Parent = menu
+        end
+    end
     
     -- Notificar o servidor (opcional)
     alternarFrameEvent:FireServer(nomeMenu)
@@ -113,7 +155,16 @@ end)
 
 botoes.BotaoInventario.MouseButton1Click:Connect(function()
     print("📱 GUI: Botão Inventário clicado")
+    print("📱 GUI: CHAMANDO AlternarMenu para InventarioFrame")
     AlternarMenu("InventarioFrame")
+    
+    -- Verificação adicional após o clique
+    wait(0.1) -- Pequena espera para garantir que a interface atualizou
+    if frames.InventarioFrame and frames.InventarioFrame.Visible then
+        print("📱 GUI: ✅ SUCESSO: InventarioFrame está visível após clique")
+    else
+        warn("📱 GUI: ❌ ERRO: InventarioFrame NÃO está visível após clique!")
+    end
 end)
 
 botoes.BotaoMissoes.MouseButton1Click:Connect(function()
