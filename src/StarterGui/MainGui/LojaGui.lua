@@ -617,7 +617,8 @@ function ComprarItemSelecionado()
     end
     
     -- Enviar solicitação de compra para o servidor
-    comprarItemEvent:FireServer(item.id, item.categoria)
+    -- Enviamos **apenas** o itemId (o servidor não espera o segundo parâmetro)
+    comprarItemEvent:FireServer(item.id)
     
     -- Feedback visual temporário (será atualizado pelo servidor)
     elementosLoja.botaoComprar.Text = "PROCESSANDO..."
