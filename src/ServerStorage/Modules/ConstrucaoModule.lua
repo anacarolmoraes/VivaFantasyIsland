@@ -123,13 +123,13 @@ function ConstrucaoModule.ColocarDecoracao(player, decoracaoId, posicao, rotacao
     -- Verificar se não excedeu o limite de decorações
     if ContarDecoracoesColocadas(userId) >= LIMITE_DECORACOES then
         return false
-    }
+    end
     
     -- Criar a decoração no mundo
     local decoracao = CriarDecoracao(decoracaoId, posicao, rotacao)
     if not decoracao then
         return false
-    }
+    end
     
     -- Registrar a decoração colocada
     local decoracaoUniqueId = "dec_" .. userId .. "_" .. os.time() .. "_" .. math.random(1000, 9999)
@@ -161,7 +161,7 @@ function ConstrucaoModule.RemoverDecoracao(player, decoracaoUniqueId)
     -- Verificar se esta decoração existe e pertence ao jogador
     if not decoracoesColocadas[userId] or not decoracoesColocadas[userId][decoracaoUniqueId] then
         return false
-    }
+    end
     
     local decoracaoInfo = decoracoesColocadas[userId][decoracaoUniqueId]
     
@@ -218,7 +218,7 @@ end
 function ConstrucaoModule.LimparDadosJogador(userId)
     jogadoresDecoracoes[userId] = nil
     -- Não limpar decoracoesColocadas para manter as decorações no mundo
-}
+end
 
 -- Funções internas (privadas) do módulo --
 
