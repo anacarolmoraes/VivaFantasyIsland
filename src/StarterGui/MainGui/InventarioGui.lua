@@ -61,7 +61,8 @@ local categorias = {
     decoracoes = "Decorações",
     moveis = "Móveis",
     plantas = "Plantas",
-    especiais = "Especiais"
+    especiais = "Especiais",
+    ferramentas = "Ferramentas"
 }
 
 -- Função para formatar números grandes (ex: 1000 -> 1.000)
@@ -322,7 +323,7 @@ local function CriarInterfaceInventario()
     categoriaFrame.Parent = inventarioFrame
     
     local botoesCategorias = {}
-    local categoriasList = {"todos", "decoracoes", "moveis", "plantas", "especiais"}
+    local categoriasList = {"todos", "decoracoes", "moveis", "plantas", "especiais", "ferramentas"}
     
     for i, categoriaId in ipairs(categoriasList) do
         local larguraBotao = 1 / #categoriasList
