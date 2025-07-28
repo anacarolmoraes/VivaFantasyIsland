@@ -1,0 +1,544 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
+	<Meta name="ExplicitAutoJoints">true</Meta>
+	<External>null</External>
+	<External>nil</External>
+	<Item class="ScreenGui" referent="RBX1">
+		<Properties>
+			<string name="Name">MainGui</string>
+			<bool name="ResetOnSpawn">false</bool>
+			<token name="ZIndexBehavior">1</token>
+		</Properties>
+		<!-- HUD Frame -->
+		<Item class="Frame" referent="RBX2">
+			<Properties>
+				<string name="Name">HUD</string>
+				<Color3 name="BackgroundColor3">
+					<R>1</R>
+					<G>1</G>
+					<B>1</B>
+				</Color3>
+				<float name="BackgroundTransparency">1</float>
+				<UDim2 name="Position">
+					<XS>0</XS>
+					<XO>0</XO>
+					<YS>0</YS>
+					<YO>0</YO>
+				</UDim2>
+				<UDim2 name="Size">
+					<XS>1</XS>
+					<XO>0</XO>
+					<YS>1</YS>
+					<YO>0</YO>
+				</UDim2>
+			</Properties>
+			<!-- MoedasFrame -->
+			<Item class="Frame" referent="RBX3">
+				<Properties>
+					<string name="Name">MoedasFrame</string>
+					<Color3 name="BackgroundColor3">
+						<R>0.215686</R>
+						<G>0.623529</G>
+						<B>0.819608</B>
+					</Color3>
+					<float name="BackgroundTransparency">0.2</float>
+					<UDim2 name="Position">
+						<XS>0</XS>
+						<XO>10</XO>
+						<YS>0</YS>
+						<YO>10</YO>
+					</UDim2>
+					<UDim2 name="Size">
+						<XS>0</XS>
+						<XO>180</XO>
+						<YS>0</YS>
+						<YO>40</YO>
+					</UDim2>
+				</Properties>
+				<Item class="TextLabel" referent="RBX4">
+					<Properties>
+						<string name="Name">ValorMoedas</string>
+						<Color3 name="BackgroundColor3">
+							<R>1</R>
+							<G>1</G>
+							<B>1</B>
+						</Color3>
+						<float name="BackgroundTransparency">1</float>
+						<UDim2 name="Position">
+							<XS>0</XS>
+							<XO>10</XO>
+							<YS>0</YS>
+							<YO>0</YO>
+						</UDim2>
+						<UDim2 name="Size">
+							<XS>1</XS>
+							<XO>-10</XO>
+							<YS>1</YS>
+							<YO>0</YO>
+						</UDim2>
+						<string name="Text">100</string>
+						<Color3 name="TextColor3">
+							<R>1</R>
+							<G>1</G>
+							<B>1</B>
+						</Color3>
+						<float name="TextSize">20</float>
+					</Properties>
+				</Item>
+			</Item>
+			<!-- NivelFrame -->
+			<Item class="Frame" referent="RBX5">
+				<Properties>
+					<string name="Name">NivelFrame</string>
+					<Color3 name="BackgroundColor3">
+						<R>0.215686</R>
+						<G>0.623529</G>
+						<B>0.819608</B>
+					</Color3>
+					<float name="BackgroundTransparency">0.2</float>
+					<UDim2 name="Position">
+						<XS>1</XS>
+						<XO>-90</XO>
+						<YS>0</YS>
+						<YO>10</YO>
+					</UDim2>
+					<UDim2 name="Size">
+						<XS>0</XS>
+						<XO>80</XO>
+						<YS>0</YS>
+						<YO>40</YO>
+					</UDim2>
+				</Properties>
+				<Item class="TextLabel" referent="RBX6">
+					<Properties>
+						<string name="Name">ValorNivel</string>
+						<Color3 name="BackgroundColor3">
+							<R>1</R>
+							<G>1</G>
+							<B>1</B>
+						</Color3>
+						<float name="BackgroundTransparency">1</float>
+						<UDim2 name="Position">
+							<XS>0</XS>
+							<XO>10</XO>
+							<YS>0</YS>
+							<YO>0</YO>
+						</UDim2>
+						<UDim2 name="Size">
+							<XS>1</XS>
+							<XO>-10</XO>
+							<YS>1</YS>
+							<YO>0</YO>
+						</UDim2>
+						<string name="Text">1</string>
+						<Color3 name="TextColor3">
+							<R>1</R>
+							<G>1</G>
+							<B>1</B>
+						</Color3>
+						<float name="TextSize">20</float>
+					</Properties>
+				</Item>
+			</Item>
+			<!-- BotoesMenu -->
+			<Item class="Frame" referent="RBX7">
+				<Properties>
+					<string name="Name">BotoesMenu</string>
+					<Color3 name="BackgroundColor3">
+						<R>0.176471</R>
+						<G>0.176471</G>
+						<B>0.176471</B>
+					</Color3>
+					<float name="BackgroundTransparency">0.5</float>
+					<UDim2 name="Position">
+						<XS>0.5</XS>
+						<XO>0</XO>
+						<YS>1</YS>
+						<YO>-60</YO>
+					</UDim2>
+					<UDim2 name="Size">
+						<XS>0.8</XS>
+						<XO>0</XO>
+						<YS>0</YS>
+						<YO>50</YO>
+					</UDim2>
+					<Vector2 name="AnchorPoint">
+						<X>0.5</X>
+						<Y>0</Y>
+					</Vector2>
+				</Properties>
+				<!-- Botões -->
+				<Item class="TextButton" referent="RBX8">
+					<Properties>
+						<string name="Name">BotaoLoja</string>
+						<Color3 name="BackgroundColor3">
+							<R>0.215686</R>
+							<G>0.623529</G>
+							<B>0.819608</B>
+						</Color3>
+						<UDim2 name="Position">
+							<XS>0</XS>
+							<XO>10</XO>
+							<YS>0</YS>
+							<YO>0</YO>
+						</UDim2>
+						<UDim2 name="Size">
+							<XS>0</XS>
+							<XO>50</XO>
+							<YS>1</YS>
+							<YO>0</YO>
+						</UDim2>
+						<string name="Text">🛒</string>
+						<float name="TextSize">24</float>
+					</Properties>
+				</Item>
+				<Item class="TextButton" referent="RBX9">
+					<Properties>
+						<string name="Name">BotaoInventario</string>
+						<Color3 name="BackgroundColor3">
+							<R>0.215686</R>
+							<G>0.623529</G>
+							<B>0.819608</B>
+						</Color3>
+						<UDim2 name="Position">
+							<XS>0</XS>
+							<XO>70</XO>
+							<YS>0</YS>
+							<YO>0</YO>
+						</UDim2>
+						<UDim2 name="Size">
+							<XS>0</XS>
+							<XO>50</XO>
+							<YS>1</YS>
+							<YO>0</YO>
+						</UDim2>
+						<string name="Text">🎒</string>
+						<float name="TextSize">24</float>
+					</Properties>
+				</Item>
+				<Item class="TextButton" referent="RBX10">
+					<Properties>
+						<string name="Name">BotaoMissoes</string>
+						<Color3 name="BackgroundColor3">
+							<R>0.215686</R>
+							<G>0.623529</G>
+							<B>0.819608</B>
+						</Color3>
+						<UDim2 name="Position">
+							<XS>0</XS>
+							<XO>130</XO>
+							<YS>0</YS>
+							<YO>0</YO>
+						</UDim2>
+						<UDim2 name="Size">
+							<XS>0</XS>
+							<XO>50</XO>
+							<YS>1</YS>
+							<YO>0</YO>
+						</UDim2>
+						<string name="Text">📋</string>
+						<float name="TextSize">24</float>
+					</Properties>
+				</Item>
+				<Item class="TextButton" referent="RBX11">
+					<Properties>
+						<string name="Name">BotaoConstrucao</string>
+						<Color3 name="BackgroundColor3">
+							<R>0.215686</R>
+							<G>0.623529</G>
+							<B>0.819608</B>
+						</Color3>
+						<UDim2 name="Position">
+							<XS>0</XS>
+							<XO>190</XO>
+							<YS>0</YS>
+							<YO>0</YO>
+						</UDim2>
+						<UDim2 name="Size">
+							<XS>0</XS>
+							<XO>50</XO>
+							<YS>1</YS>
+							<YO>0</YO>
+						</UDim2>
+						<string name="Text">🏗️</string>
+						<float name="TextSize">24</float>
+					</Properties>
+				</Item>
+				<Item class="TextButton" referent="RBX12">
+					<Properties>
+						<string name="Name">BotaoSocial</string>
+						<Color3 name="BackgroundColor3">
+							<R>0.215686</R>
+							<G>0.623529</G>
+							<B>0.819608</B>
+						</Color3>
+						<UDim2 name="Position">
+							<XS>0</XS>
+							<XO>250</XO>
+							<YS>0</YS>
+							<YO>0</YO>
+						</UDim2>
+						<UDim2 name="Size">
+							<XS>0</XS>
+							<XO>50</XO>
+							<YS>1</YS>
+							<YO>0</YO>
+						</UDim2>
+						<string name="Text">👥</string>
+						<float name="TextSize">24</float>
+					</Properties>
+				</Item>
+				<Item class="TextButton" referent="RBX13">
+					<Properties>
+						<string name="Name">BotaoConfiguracoes</string>
+						<Color3 name="BackgroundColor3">
+							<R>0.215686</R>
+							<G>0.623529</G>
+							<B>0.819608</B>
+						</Color3>
+						<UDim2 name="Position">
+							<XS>0</XS>
+							<XO>310</XO>
+							<YS>0</YS>
+							<YO>0</YO>
+						</UDim2>
+						<UDim2 name="Size">
+							<XS>0</XS>
+							<XO>50</XO>
+							<YS>1</YS>
+							<YO>0</YO>
+						</UDim2>
+						<string name="Text">⚙️</string>
+						<float name="TextSize">24</float>
+					</Properties>
+				</Item>
+			</Item>
+		</Item>
+		<!-- LojaFrame -->
+		<Item class="Frame" referent="RBX14">
+			<Properties>
+				<string name="Name">LojaFrame</string>
+				<Color3 name="BackgroundColor3">
+					<R>0.176471</R>
+					<G>0.176471</G>
+					<B>0.176471</B>
+				</Color3>
+				<float name="BackgroundTransparency">0.1</float>
+				<UDim2 name="Position">
+					<XS>0.5</XS>
+					<XO>0</XO>
+					<YS>0.5</YS>
+					<YO>0</YO>
+				</UDim2>
+				<UDim2 name="Size">
+					<XS>0.8</XS>
+					<XO>0</XO>
+					<YS>0.8</YS>
+					<YO>0</YO>
+				</UDim2>
+				<Vector2 name="AnchorPoint">
+					<X>0.5</X>
+					<Y>0.5</Y>
+				</Vector2>
+				<bool name="Visible">false</bool>
+			</Properties>
+		</Item>
+		<!-- InventarioFrame -->
+		<Item class="Frame" referent="RBX15">
+			<Properties>
+				<string name="Name">InventarioFrame</string>
+				<Color3 name="BackgroundColor3">
+					<R>0.176471</R>
+					<G>0.176471</G>
+					<B>0.176471</B>
+				</Color3>
+				<float name="BackgroundTransparency">0.1</float>
+				<UDim2 name="Position">
+					<XS>0.5</XS>
+					<XO>0</XO>
+					<YS>0.5</YS>
+					<YO>0</YO>
+				</UDim2>
+				<UDim2 name="Size">
+					<XS>0.8</XS>
+					<XO>0</XO>
+					<YS>0.8</YS>
+					<YO>0</YO>
+				</UDim2>
+				<Vector2 name="AnchorPoint">
+					<X>0.5</X>
+					<Y>0.5</Y>
+				</Vector2>
+				<bool name="Visible">false</bool>
+			</Properties>
+		</Item>
+		<!-- MissoesFrame -->
+		<Item class="Frame" referent="RBX16">
+			<Properties>
+				<string name="Name">MissoesFrame</string>
+				<Color3 name="BackgroundColor3">
+					<R>0.176471</R>
+					<G>0.176471</G>
+					<B>0.176471</B>
+				</Color3>
+				<float name="BackgroundTransparency">0.1</float>
+				<UDim2 name="Position">
+					<XS>0.5</XS>
+					<XO>0</XO>
+					<YS>0.5</YS>
+					<YO>0</YO>
+				</UDim2>
+				<UDim2 name="Size">
+					<XS>0.8</XS>
+					<XO>0</XO>
+					<YS>0.8</YS>
+					<YO>0</YO>
+				</UDim2>
+				<Vector2 name="AnchorPoint">
+					<X>0.5</X>
+					<Y>0.5</Y>
+				</Vector2>
+				<bool name="Visible">false</bool>
+			</Properties>
+		</Item>
+		<!-- ConstrucaoFrame -->
+		<Item class="Frame" referent="RBX17">
+			<Properties>
+				<string name="Name">ConstrucaoFrame</string>
+				<Color3 name="BackgroundColor3">
+					<R>0.176471</R>
+					<G>0.176471</G>
+					<B>0.176471</B>
+				</Color3>
+				<float name="BackgroundTransparency">0.1</float>
+				<UDim2 name="Position">
+					<XS>0.5</XS>
+					<XO>0</XO>
+					<YS>0.5</YS>
+					<YO>0</YO>
+				</UDim2>
+				<UDim2 name="Size">
+					<XS>0.8</XS>
+					<XO>0</XO>
+					<YS>0.8</YS>
+					<YO>0</YO>
+				</UDim2>
+				<Vector2 name="AnchorPoint">
+					<X>0.5</X>
+					<Y>0.5</Y>
+				</Vector2>
+				<bool name="Visible">false</bool>
+			</Properties>
+		</Item>
+		<!-- SocialFrame -->
+		<Item class="Frame" referent="RBX18">
+			<Properties>
+				<string name="Name">SocialFrame</string>
+				<Color3 name="BackgroundColor3">
+					<R>0.176471</R>
+					<G>0.176471</G>
+					<B>0.176471</B>
+				</Color3>
+				<float name="BackgroundTransparency">0.1</float>
+				<UDim2 name="Position">
+					<XS>0.5</XS>
+					<XO>0</XO>
+					<YS>0.5</YS>
+					<YO>0</YO>
+				</UDim2>
+				<UDim2 name="Size">
+					<XS>0.8</XS>
+					<XO>0</XO>
+					<YS>0.8</YS>
+					<YO>0</YO>
+				</UDim2>
+				<Vector2 name="AnchorPoint">
+					<X>0.5</X>
+					<Y>0.5</Y>
+				</Vector2>
+				<bool name="Visible">false</bool>
+			</Properties>
+		</Item>
+		<!-- ConfiguracoesFrame -->
+		<Item class="Frame" referent="RBX19">
+			<Properties>
+				<string name="Name">ConfiguracoesFrame</string>
+				<Color3 name="BackgroundColor3">
+					<R>0.176471</R>
+					<G>0.176471</G>
+					<B>0.176471</B>
+				</Color3>
+				<float name="BackgroundTransparency">0.1</float>
+				<UDim2 name="Position">
+					<XS>0.5</XS>
+					<XO>0</XO>
+					<YS>0.5</YS>
+					<YO>0</YO>
+				</UDim2>
+				<UDim2 name="Size">
+					<XS>0.8</XS>
+					<XO>0</XO>
+					<YS>0.8</YS>
+					<YO>0</YO>
+				</UDim2>
+				<Vector2 name="AnchorPoint">
+					<X>0.5</X>
+					<Y>0.5</Y>
+				</Vector2>
+				<bool name="Visible">false</bool>
+			</Properties>
+		</Item>
+		<!-- NotificacoesFrame -->
+		<Item class="Frame" referent="RBX20">
+			<Properties>
+				<string name="Name">NotificacoesFrame</string>
+				<Color3 name="BackgroundColor3">
+					<R>1</R>
+					<G>1</G>
+					<B>1</B>
+				</Color3>
+				<float name="BackgroundTransparency">1</float>
+				<UDim2 name="Position">
+					<XS>1</XS>
+					<XO>0</XO>
+					<YS>1</YS>
+					<YO>0</YO>
+				</UDim2>
+				<UDim2 name="Size">
+					<XS>0</XS>
+					<XO>300</XO>
+					<YS>1</YS>
+					<YO>0</YO>
+				</UDim2>
+				<Vector2 name="AnchorPoint">
+					<X>1</X>
+					<Y>1</Y>
+				</Vector2>
+			</Properties>
+			<Item class="Frame" referent="RBX21">
+				<Properties>
+					<string name="Name">TemplateNotificacao</string>
+					<Color3 name="BackgroundColor3">
+						<R>0.176471</R>
+						<G>0.176471</G>
+						<B>0.176471</B>
+					</Color3>
+					<float name="BackgroundTransparency">0.2</float>
+					<UDim2 name="Position">
+						<XS>1</XS>
+						<XO>0</XO>
+						<YS>0.9</YS>
+						<YO>0</YO>
+					</UDim2>
+					<UDim2 name="Size">
+						<XS>0</XS>
+						<XO>280</XO>
+						<YS>0</YS>
+						<YO>60</YO>
+					</UDim2>
+					<bool name="Visible">false</bool>
+				</Properties>
+			</Item>
+		</Item>
+	</Item>
+</roblox>
