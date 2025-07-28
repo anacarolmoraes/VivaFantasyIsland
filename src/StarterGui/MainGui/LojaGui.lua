@@ -1,68 +1,108 @@
---[[
-    LojaGui.lua
-    
-    Script cliente para a interface da loja do jogo "Viva Fantasy Island"
-    Gerencia a exibição de itens, categorias, compras e feedback visual
-    
-    Autor: Factory AI
-    Data: 27/07/2025
-]]
-
--- Serviços do Roblox
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local MarketplaceService = game:GetService("MarketplaceService")
 
--- Jogador local
-local jogador = Players.LocalPlayer
-local personagem = jogador.Character or jogador.CharacterAdded:Wait()
+-- Obter jogador local
+local player = Players.LocalPlayer
 
--- Referências à GUI
-local mainGui = script.Parent
-local lojaFrame = mainGui:WaitForChild("LojaFrame")
-
--- Eventos Remotos
+-- Obter eventos remotos
 local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
-local comprarItemEvent = RemoteEvents:WaitForChild("ComprarItem") -- Criar este RemoteEvent
-local atualizarHUDEvent = RemoteEvents:WaitForChild("AtualizarHUD")
+local ComprarItemEvent = RemoteEvents:WaitForChild("ComprarItem")
 
--- Configurações de animação
-local configAnimacao = {
-    duracao = 0.3,
-    estilo = Enum.EasingStyle.Quad,
-    direcao = Enum.EasingDirection.Out
+-- Configurações
+local CONFIG = {
+    tempoAnimacao = 0.3,
+    corPrimaria = Color3.fromRGB(0, 170, 255),
+    corSecundaria = Color3.fromRGB(0, 120, 180),
+    corTexto = Color3.fromRGB(255, 255, 255),
+    corFundo = Color3.fromRGB(40, 40, 40),
+    corDestaque = Color3.fromRGB(255, 215, 0),
+    corErro = Color3.fromRGB(255, 0, 0)
 }
 
--- Catálogo completo de itens da loja
-local catalogoItens = {
+-- Definição dos itens disponíveis na loja
+local ITENS_LOJA = {
     decoracoes = {
         {
             id = "cerca_madeira",
             nome = "Cerca de Madeira",
             descricao = "Uma cerca rústica para delimitar sua propriedade.",
             preco = 50,
-            icone = "rbxassetid://6797380005", -- ID de um asset no Roblox (placeholder)
+            icone = "rbxassetid://6797380001",
             categoria = "decoracoes",
-            modelo3d = "cerca_madeira" -- ID do modelo no ServerStorage
+            modelo3d = "cerca_madeira"
         },
         {
-            id = "fonte_agua",
-            nome = "Fonte de Água",
-            descricao = "Uma bela fonte que adiciona charme à sua ilha.",
-            preco = 250,
-            icone = "rbxassetid://6797380117",
+            id = "pedra_decorativa",
+            nome = "Pedra Decorativa",
+            descricao = "Uma pedra ornamental para seu jardim.",
+            preco = 30,
+            icone = "rbxassetid://6797380002",
             categoria = "decoracoes",
-            modelo3d = "fonte_agua"
+            modelo3d = "pedra_decorativa"
         },
         {
             id = "estatua_pequena",
             nome = "Estátua de Pedra",
-            descricao = "Uma pequena estátua decorativa.",
+            descricao = "Uma pequena estátua para decorar seu espaço.",
             preco = 150,
-            icone = "rbxassetid://6797380223",
+            icone = "rbxassetid://6797380003",
             categoria = "decoracoes",
             modelo3d = "estatua_pequena"
+        },
+        {
+            id = "fonte_pedra",
+            nome = "Fonte de Pedra",
+            descricao = "Uma bela fonte que adiciona charme à sua ilha.",
+            preco = 250,
+            icone = "rbxassetid://6797380004",
+            categoria = "decoracoes",
+            modelo3d = "fonte_pedra"
+        },
+        {
+            id = "luminaria_jardim",
+            nome = "Luminária de Jardim",
+            descricao = "Ilumina seu jardim durante a noite.",
+            preco = 120,
+            icone = "rbxassetid://6797380005",
+            categoria = "decoracoes",
+            modelo3d = "luminaria_jardim"
+        },
+        {
+            id = "banco_parque",
+            nome = "Banco de Parque",
+            descricao = "Um lugar confortável para sentar e relaxar.",
+            preco = 100,
+            icone = "rbxassetid://6797380006",
+            categoria = "decoracoes",
+            modelo3d = "banco_parque"
+        },
+        {
+            id = "caixa_correio",
+            nome = "Caixa de Correio",
+            descricao = "Receba mensagens de seus amigos.",
+            preco = 80,
+            icone = "rbxassetid://6797380007",
+            categoria = "decoracoes",
+            modelo3d = "caixa_correio"
+        },
+        {
+            id = "estatua_grande",
+            nome = "Estátua Grande",
+            descricao = "Uma estátua imponente para sua ilha.",
+            preco = 400,
+            icone = "rbxassetid://6797380008",
+            categoria = "decoracoes",
+            modelo3d = "estatua_grande"
+        },
+        {
+            id = "poste_sinalizacao",
+            nome = "Poste de Sinalização",
+            descricao = "Ajuda a orientar visitantes em sua ilha.",
+            preco = 75,
+            icone = "rbxassetid://6797380009",
+            categoria = "decoracoes",
+            modelo3d = "poste_sinalizacao"
         }
     },
     moveis = {
@@ -71,77 +111,171 @@ local catalogoItens = {
             nome = "Mesa de Madeira",
             descricao = "Uma mesa robusta para sua casa.",
             preco = 120,
-            icone = "rbxassetid://6797380329",
+            icone = "rbxassetid://6797380010",
             categoria = "moveis",
             modelo3d = "mesa_madeira"
         },
         {
             id = "cadeira_simples",
             nome = "Cadeira Simples",
-            descricao = "Uma cadeira básica e confortável.",
+            descricao = "Uma cadeira confortável para sua mesa.",
             preco = 80,
-            icone = "rbxassetid://6797380438",
+            icone = "rbxassetid://6797380011",
             categoria = "moveis",
             modelo3d = "cadeira_simples"
         },
         {
-            id = "cama_madeira",
-            nome = "Cama de Madeira",
-            descricao = "Uma cama aconchegante para sua casa.",
+            id = "sofa_moderno",
+            nome = "Sofá Moderno",
+            descricao = "Um sofá elegante e confortável para sua sala.",
             preco = 200,
-            icone = "rbxassetid://6797380547",
+            icone = "rbxassetid://6797380012",
             categoria = "moveis",
-            modelo3d = "cama_madeira"
+            modelo3d = "sofa_moderno"
+        },
+        {
+            id = "estante_livros",
+            nome = "Estante de Livros",
+            descricao = "Organize seus livros com estilo.",
+            preco = 180,
+            icone = "rbxassetid://6797380013",
+            categoria = "moveis",
+            modelo3d = "estante_livros"
+        },
+        {
+            id = "cama_simples",
+            nome = "Cama Simples",
+            descricao = "Um lugar aconchegante para descansar.",
+            preco = 150,
+            icone = "rbxassetid://6797380014",
+            categoria = "moveis",
+            modelo3d = "cama_simples"
         }
     },
     plantas = {
         {
             id = "arvore_pequena",
             nome = "Árvore Pequena",
-            descricao = "Uma árvore jovem para sua ilha.",
+            descricao = "Uma árvore jovem para seu jardim.",
             preco = 100,
-            icone = "rbxassetid://6797380656",
+            icone = "rbxassetid://6797380015",
             categoria = "plantas",
             modelo3d = "arvore_pequena"
         },
         {
             id = "flor_azul",
             nome = "Flores Azuis",
-            descricao = "Um canteiro de belas flores azuis.",
-            preco = 50,
-            icone = "rbxassetid://6797380765",
+            descricao = "Lindas flores azuis para colorir seu jardim.",
+            preco = 45,
+            icone = "rbxassetid://6797380016",
             categoria = "plantas",
             modelo3d = "flor_azul"
         },
         {
-            id = "arbusto_decorativo",
-            nome = "Arbusto Decorativo",
-            descricao = "Um arbusto bem aparado para decoração.",
-            preco = 75,
-            icone = "rbxassetid://6797380874",
+            id = "arvore_grande",
+            nome = "Árvore Grande",
+            descricao = "Uma árvore majestosa para dar sombra.",
+            preco = 250,
+            icone = "rbxassetid://6797380017",
             categoria = "plantas",
-            modelo3d = "arbusto_decorativo"
+            modelo3d = "arvore_grande"
+        },
+        {
+            id = "arbusto_flores",
+            nome = "Arbusto Florido",
+            descricao = "Um arbusto cheio de flores coloridas.",
+            preco = 75,
+            icone = "rbxassetid://6797380018",
+            categoria = "plantas",
+            modelo3d = "arbusto_flores"
+        },
+        {
+            id = "palmeira",
+            nome = "Palmeira",
+            descricao = "Uma palmeira tropical para sua ilha.",
+            preco = 180,
+            icone = "rbxassetid://6797380019",
+            categoria = "plantas",
+            modelo3d = "palmeira"
+        },
+        {
+            id = "jardim_flores",
+            nome = "Jardim de Flores",
+            descricao = "Um conjunto de flores variadas para seu jardim.",
+            preco = 120,
+            icone = "rbxassetid://6797380020",
+            categoria = "plantas",
+            modelo3d = "jardim_flores"
         }
     },
     especiais = {
         {
-            id = "fonte_magica",
-            nome = "Fonte Mágica",
-            descricao = "Uma fonte que brilha com cores mágicas.",
+            id = "portal_magico",
+            nome = "Portal Mágico",
+            descricao = "Um portal místico que adiciona magia à sua ilha.",
             preco = 500,
-            icone = "rbxassetid://6797380983",
+            icone = "rbxassetid://6797380021",
             categoria = "especiais",
-            modelo3d = "fonte_magica"
+            modelo3d = "portal_magico"
         },
         {
-            id = "estatua_dragao",
-            nome = "Estátua de Dragão",
-            descricao = "Uma impressionante estátua de dragão.",
-            preco = 750,
-            icone = "rbxassetid://6797381092",
+            id = "cristal_energia",
+            nome = "Cristal de Energia",
+            descricao = "Um cristal brilhante que emana energia mágica.",
+            preco = 350,
+            icone = "rbxassetid://6797380022",
             categoria = "especiais",
-            modelo3d = "estatua_dragao"
+            modelo3d = "cristal_energia"
+        },
+        {
+            id = "altar_mistico",
+            nome = "Altar Místico",
+            descricao = "Um altar antigo com poderes misteriosos.",
+            preco = 600,
+            icone = "rbxassetid://6797380023",
+            categoria = "especiais",
+            modelo3d = "altar_mistico"
         }
+    },
+    ferramentas = {
+        {
+            id = "martelo_construcao",
+            nome = "Martelo de Construção",
+            descricao = "Ferramenta essencial para construir estruturas.",
+            preco = 200,
+            icone = "rbxassetid://6797380024",
+            categoria = "ferramentas",
+            modelo3d = "martelo_construcao"
+        },
+        {
+            id = "pa_jardinagem",
+            nome = "Pá de Jardinagem",
+            descricao = "Ideal para plantar e cuidar do seu jardim.",
+            preco = 150,
+            icone = "rbxassetid://6797380025",
+            categoria = "ferramentas",
+            modelo3d = "pa_jardinagem"
+        },
+        {
+            id = "regador",
+            nome = "Regador",
+            descricao = "Mantenha suas plantas saudáveis e hidratadas.",
+            preco = 100,
+            icone = "rbxassetid://6797380026",
+            categoria = "ferramentas",
+            modelo3d = "regador"
+        }
+    }
+}
+
+-- Traduções para nomes de categorias
+local TRADUCOES = {
+    categorias = {
+        decoracoes = "Decorações",
+        moveis = "Móveis",
+        plantas = "Plantas",
+        especiais = "Especiais",
+        ferramentas = "Ferramentas"
     }
 }
 
@@ -168,520 +302,404 @@ local function FormatarNumero(numero)
     return formatado
 end
 
--- Função para criar animação de tween
-local function CriarTween(objeto, propriedades, duracao, estilo, direcao)
-    local info = TweenInfo.new(
-        duracao or configAnimacao.duracao,
-        estilo or configAnimacao.estilo,
-        direcao or configAnimacao.direcao
-    )
-    
-    local tween = TweenService:Create(objeto, info, propriedades)
-    return tween
-end
-
--- Função para mostrar notificação
-local function MostrarNotificacao(titulo, mensagem, tipo, duracao)
-    duracao = duracao or 3 -- Duração padrão de 3 segundos
-    
-    -- Criar notificação na interface
-    local notificacoesFrame = mainGui:WaitForChild("NotificacoesFrame")
-    local templateNotificacao = notificacoesFrame:WaitForChild("TemplateNotificacao"):Clone()
-    templateNotificacao.Name = "Notificacao_" .. os.time()
-    templateNotificacao.Visible = true
-    
-    -- Configurar aparência baseado no tipo
-    if tipo == "sucesso" then
-        templateNotificacao.BackgroundColor3 = Color3.fromRGB(76, 175, 80) -- Verde
-    elseif tipo == "erro" then
-        templateNotificacao.BackgroundColor3 = Color3.fromRGB(211, 47, 47) -- Vermelho
-    else
-        templateNotificacao.BackgroundColor3 = Color3.fromRGB(33, 150, 243) -- Azul (info)
-    end
-    
-    -- Configurar texto
-    local tituloLabel = Instance.new("TextLabel")
-    tituloLabel.Name = "Titulo"
-    tituloLabel.Size = UDim2.new(1, 0, 0, 20)
-    tituloLabel.Position = UDim2.new(0, 0, 0, 0)
-    tituloLabel.BackgroundTransparency = 1
-    tituloLabel.TextColor3 = Color3.new(1, 1, 1)
-    tituloLabel.TextSize = 14
-    tituloLabel.Font = Enum.Font.SourceSansBold
-    tituloLabel.Text = titulo
-    tituloLabel.Parent = templateNotificacao
-    
-    local mensagemLabel = Instance.new("TextLabel")
-    mensagemLabel.Name = "Mensagem"
-    mensagemLabel.Size = UDim2.new(1, 0, 0, 40)
-    mensagemLabel.Position = UDim2.new(0, 0, 0, 20)
-    mensagemLabel.BackgroundTransparency = 1
-    mensagemLabel.TextColor3 = Color3.new(1, 1, 1)
-    mensagemLabel.TextSize = 12
-    mensagemLabel.Font = Enum.Font.SourceSans
-    mensagemLabel.Text = mensagem
-    mensagemLabel.TextWrapped = true
-    mensagemLabel.Parent = templateNotificacao
-    
-    -- Posicionar notificação
-    templateNotificacao.Position = UDim2.new(1, -20, 1, -80)
-    templateNotificacao.AnchorPoint = Vector2.new(1, 1)
-    templateNotificacao.Parent = notificacoesFrame
-    
-    -- Animação de entrada
-    templateNotificacao.Position = UDim2.new(1, 300, 1, -80) -- Começa fora da tela
-    local tweenEntrada = CriarTween(templateNotificacao, {Position = UDim2.new(1, -20, 1, -80)}, 0.5)
-    tweenEntrada:Play()
-    
-    -- Animação de saída após duração
-    task.delay(duracao, function()
-        local tweenSaida = CriarTween(templateNotificacao, {Position = UDim2.new(1, 300, 1, -80)}, 0.5)
-        tweenSaida:Play()
-        tweenSaida.Completed:Connect(function()
-            templateNotificacao:Destroy()
-        end)
-    end)
-end
-
--- Função para criar a interface básica da loja
-local function CriarInterfaceLoja()
-    -- Limpar interface existente
-    for _, item in pairs(lojaFrame:GetChildren()) do
-        if item:IsA("Frame") or item:IsA("ScrollingFrame") or item:IsA("TextButton") then
-            item:Destroy()
-        end
-    end
-    
-    -- Criar título
-    local tituloLoja = Instance.new("TextLabel")
-    tituloLoja.Name = "TituloLoja"
-    tituloLoja.Size = UDim2.new(1, 0, 0, 50)
-    tituloLoja.Position = UDim2.new(0, 0, 0, 0)
-    tituloLoja.BackgroundTransparency = 1
-    tituloLoja.TextColor3 = Color3.new(1, 1, 1)
-    tituloLoja.TextSize = 24
-    tituloLoja.Font = Enum.Font.SourceSansBold
-    tituloLoja.Text = "Loja de Decorações"
-    tituloLoja.Parent = lojaFrame
-    
-    -- Criar barra de pesquisa
-    local barraPesquisa = Instance.new("Frame")
-    barraPesquisa.Name = "BarraPesquisa"
-    barraPesquisa.Size = UDim2.new(0.8, 0, 0, 40)
-    barraPesquisa.Position = UDim2.new(0.1, 0, 0, 60)
-    barraPesquisa.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    barraPesquisa.BorderSizePixel = 0
-    barraPesquisa.Parent = lojaFrame
-    
-    local campoPesquisa = Instance.new("TextBox")
-    campoPesquisa.Name = "CampoPesquisa"
-    campoPesquisa.Size = UDim2.new(1, -20, 1, -10)
-    campoPesquisa.Position = UDim2.new(0, 10, 0, 5)
-    campoPesquisa.BackgroundTransparency = 1
-    campoPesquisa.TextColor3 = Color3.new(1, 1, 1)
-    campoPesquisa.TextSize = 16
-    campoPesquisa.Font = Enum.Font.SourceSans
-    campoPesquisa.PlaceholderText = "Pesquisar itens..."
-    campoPesquisa.Text = ""
-    campoPesquisa.ClearTextOnFocus = false
-    campoPesquisa.Parent = barraPesquisa
-    
-    -- Conectar evento de pesquisa
-    campoPesquisa:GetPropertyChangedSignal("Text"):Connect(function()
-        elementosLoja.termoPesquisa = campoPesquisa.Text:lower()
-        AtualizarItensPorCategoria(elementosLoja.categoriaAtual)
-    end)
-    
-    -- Criar botões de categorias
+-- Criar botões de categorias
+local function CriarBotoesCategorias(lojaFrame)
     local categoriaFrame = Instance.new("Frame")
     categoriaFrame.Name = "CategoriaFrame"
+    categoriaFrame.Parent = lojaFrame
     categoriaFrame.Size = UDim2.new(1, 0, 0, 50)
     categoriaFrame.Position = UDim2.new(0, 0, 0, 110)
     categoriaFrame.BackgroundTransparency = 1
-    categoriaFrame.Parent = lojaFrame
     
-    local categorias = {"decoracoes", "moveis", "plantas", "especiais"}
-    local nomesCategorias = {
-        decoracoes = "Decorações",
-        moveis = "Móveis",
-        plantas = "Plantas",
-        especiais = "Especiais"
-    }
+    local layout = Instance.new("UIListLayout")
+    layout.Parent = categoriaFrame
+    layout.FillDirection = Enum.FillDirection.Horizontal
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 10)
+    
+    local categorias = {"decoracoes", "moveis", "plantas", "especiais", "ferramentas"}
     
     for i, categoria in ipairs(categorias) do
-        local botaoCategoria = Instance.new("TextButton")
-        botaoCategoria.Name = "Categoria_" .. categoria
-        botaoCategoria.Size = UDim2.new(0.25, -10, 1, -10)
-        botaoCategoria.Position = UDim2.new(0.25 * (i-1), 5, 0, 5)
-        botaoCategoria.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-        botaoCategoria.TextColor3 = Color3.new(1, 1, 1)
-        botaoCategoria.TextSize = 16
-        botaoCategoria.Font = Enum.Font.SourceSansBold
-        botaoCategoria.Text = nomesCategorias[categoria] or categoria
-        botaoCategoria.BorderSizePixel = 0
-        botaoCategoria.Parent = categoriaFrame
+        local botao = Instance.new("TextButton")
+        botao.Name = categoria
+        botao.Parent = categoriaFrame
+        botao.Size = UDim2.new(0, 100, 1, 0)
+        botao.BackgroundColor3 = CONFIG.corFundo
+        botao.Text = TRADUCOES.categorias[categoria]
+        botao.TextColor3 = CONFIG.corTexto
+        botao.Font = Enum.Font.GothamSemibold
+        botao.TextSize = 14
+        botao.LayoutOrder = i
         
-        elementosLoja.botoesCategorias[categoria] = botaoCategoria
+        -- Arredondar cantos
+        local corner = Instance.new("UICorner")
+        corner.Parent = botao
+        corner.CornerRadius = UDim.new(0, 8)
         
-        -- Conectar evento de clique
-        botaoCategoria.MouseButton1Click:Connect(function()
-            SelecionarCategoria(categoria)
+        -- Adicionar efeito de hover
+        botao.MouseEnter:Connect(function()
+            if elementosLoja.categoriaAtual ~= categoria then
+                TweenService:Create(botao, TweenInfo.new(0.2), {BackgroundColor3 = CONFIG.corSecundaria}):Play()
+            end
         end)
+        
+        botao.MouseLeave:Connect(function()
+            if elementosLoja.categoriaAtual ~= categoria then
+                TweenService:Create(botao, TweenInfo.new(0.2), {BackgroundColor3 = CONFIG.corFundo}):Play()
+            end
+        end)
+        
+        -- Adicionar funcionalidade de clique
+        botao.MouseButton1Click:Connect(function()
+            -- Desativar botão anterior
+            if elementosLoja.categoriaAtual and elementosLoja.botoesCategorias[elementosLoja.categoriaAtual] then
+                TweenService:Create(elementosLoja.botoesCategorias[elementosLoja.categoriaAtual], 
+                    TweenInfo.new(0.2), {BackgroundColor3 = CONFIG.corFundo}):Play()
+            end
+            
+            -- Ativar novo botão
+            TweenService:Create(botao, TweenInfo.new(0.2), {BackgroundColor3 = CONFIG.corPrimaria}):Play()
+            
+            -- Atualizar categoria atual
+            elementosLoja.categoriaAtual = categoria
+            
+            -- Atualizar itens visíveis
+            AtualizarItensVisiveis()
+        end)
+        
+        -- Armazenar referência ao botão
+        elementosLoja.botoesCategorias[categoria] = botao
     end
     
-    -- Criar frame de itens com scroll
-    local itensFrame = Instance.new("ScrollingFrame")
-    itensFrame.Name = "ItensFrame"
-    itensFrame.Size = UDim2.new(0.65, 0, 1, -170)
-    itensFrame.Position = UDim2.new(0, 10, 0, 170)
-    itensFrame.BackgroundTransparency = 0.9
-    itensFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    itensFrame.BorderSizePixel = 0
-    itensFrame.ScrollBarThickness = 6
-    itensFrame.ScrollingDirection = Enum.ScrollingDirection.Y
-    itensFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    itensFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    itensFrame.Parent = lojaFrame
+    -- Ativar categoria inicial
+    TweenService:Create(elementosLoja.botoesCategorias[elementosLoja.categoriaAtual], 
+        TweenInfo.new(0.2), {BackgroundColor3 = CONFIG.corPrimaria}):Play()
+end
+
+-- Criar campo de pesquisa
+local function CriarCampoPesquisa(lojaFrame)
+    local pesquisaFrame = Instance.new("Frame")
+    pesquisaFrame.Name = "PesquisaFrame"
+    pesquisaFrame.Parent = lojaFrame
+    pesquisaFrame.Size = UDim2.new(1, -40, 0, 40)
+    pesquisaFrame.Position = UDim2.new(0, 20, 0, 60)
+    pesquisaFrame.BackgroundColor3 = CONFIG.corFundo
     
-    elementosLoja.itensFrame = itensFrame
+    local corner = Instance.new("UICorner")
+    corner.Parent = pesquisaFrame
+    corner.CornerRadius = UDim.new(0, 8)
     
-    -- Criar frame de detalhes do item
-    local detalhesFrame = Instance.new("Frame")
-    detalhesFrame.Name = "DetalhesFrame"
-    detalhesFrame.Size = UDim2.new(0.35, -20, 1, -170)
-    detalhesFrame.Position = UDim2.new(0.65, 10, 0, 170)
-    detalhesFrame.BackgroundTransparency = 0.5
-    detalhesFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    detalhesFrame.BorderSizePixel = 0
-    detalhesFrame.Visible = false
-    detalhesFrame.Parent = lojaFrame
+    local pesquisaBox = Instance.new("TextBox")
+    pesquisaBox.Name = "PesquisaBox"
+    pesquisaBox.Parent = pesquisaFrame
+    pesquisaBox.Size = UDim2.new(1, -20, 1, -10)
+    pesquisaBox.Position = UDim2.new(0, 10, 0, 5)
+    pesquisaBox.BackgroundTransparency = 1
+    pesquisaBox.Text = ""
+    pesquisaBox.PlaceholderText = "Pesquisar itens..."
+    pesquisaBox.TextColor3 = CONFIG.corTexto
+    pesquisaBox.Font = Enum.Font.Gotham
+    pesquisaBox.TextSize = 14
+    pesquisaBox.TextXAlignment = Enum.TextXAlignment.Left
     
-    -- Elementos do frame de detalhes
-    local itemImagem = Instance.new("ImageLabel")
-    itemImagem.Name = "ItemImagem"
-    itemImagem.Size = UDim2.new(0, 100, 0, 100)
-    itemImagem.Position = UDim2.new(0.5, 0, 0, 20)
-    itemImagem.AnchorPoint = Vector2.new(0.5, 0)
-    itemImagem.BackgroundTransparency = 1
-    itemImagem.Parent = detalhesFrame
+    -- Adicionar funcionalidade de pesquisa
+    pesquisaBox:GetPropertyChangedSignal("Text"):Connect(function()
+        elementosLoja.termoPesquisa = pesquisaBox.Text:lower()
+        AtualizarItensVisiveis()
+    end)
+end
+
+-- Criar grid de itens
+local function CriarGridItens(lojaFrame)
+    local scrollFrame = Instance.new("ScrollingFrame")
+    scrollFrame.Name = "ItemsScrollFrame"
+    scrollFrame.Parent = lojaFrame
+    scrollFrame.Size = UDim2.new(1, -40, 1, -180)
+    scrollFrame.Position = UDim2.new(0, 20, 0, 170)
+    scrollFrame.BackgroundTransparency = 1
+    scrollFrame.BorderSizePixel = 0
+    scrollFrame.ScrollBarThickness = 6
+    scrollFrame.ScrollBarImageColor3 = CONFIG.corSecundaria
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
     
-    local itemNome = Instance.new("TextLabel")
-    itemNome.Name = "ItemNome"
-    itemNome.Size = UDim2.new(1, -20, 0, 30)
-    itemNome.Position = UDim2.new(0, 10, 0, 130)
-    itemNome.BackgroundTransparency = 1
-    itemNome.TextColor3 = Color3.new(1, 1, 1)
-    itemNome.TextSize = 18
-    itemNome.Font = Enum.Font.SourceSansBold
-    itemNome.Text = ""
-    itemNome.TextWrapped = true
-    itemNome.Parent = detalhesFrame
+    local grid = Instance.new("UIGridLayout")
+    grid.Parent = scrollFrame
+    grid.CellSize = UDim2.new(0, 150, 0, 200)
+    grid.CellPadding = UDim2.new(0, 10, 0, 10)
+    grid.SortOrder = Enum.SortOrder.LayoutOrder
     
-    local itemDescricao = Instance.new("TextLabel")
-    itemDescricao.Name = "ItemDescricao"
-    itemDescricao.Size = UDim2.new(1, -20, 0, 60)
-    itemDescricao.Position = UDim2.new(0, 10, 0, 170)
-    itemDescricao.BackgroundTransparency = 1
-    itemDescricao.TextColor3 = Color3.new(0.9, 0.9, 0.9)
-    itemDescricao.TextSize = 14
-    itemDescricao.Font = Enum.Font.SourceSans
-    itemDescricao.Text = ""
-    itemDescricao.TextWrapped = true
-    itemDescricao.TextXAlignment = Enum.TextXAlignment.Left
-    itemDescricao.TextYAlignment = Enum.TextYAlignment.Top
-    itemDescricao.Parent = detalhesFrame
+    -- Armazenar referência ao grid
+    elementosLoja.gridFrame = scrollFrame
+end
+
+-- Criar card para um item
+local function CriarItemCard(item)
+    local card = Instance.new("Frame")
+    card.Name = item.id
+    card.Size = UDim2.new(1, 0, 1, 0)
+    card.BackgroundColor3 = CONFIG.corFundo
     
-    local itemPreco = Instance.new("TextLabel")
-    itemPreco.Name = "ItemPreco"
-    itemPreco.Size = UDim2.new(1, -20, 0, 30)
-    itemPreco.Position = UDim2.new(0, 10, 0, 240)
-    itemPreco.BackgroundTransparency = 1
-    itemPreco.TextColor3 = Color3.fromRGB(255, 215, 0) -- Dourado
-    itemPreco.TextSize = 18
-    itemPreco.Font = Enum.Font.SourceSansBold
-    itemPreco.Text = ""
-    itemPreco.Parent = detalhesFrame
+    local corner = Instance.new("UICorner")
+    corner.Parent = card
+    corner.CornerRadius = UDim.new(0, 8)
     
+    -- Imagem do item
+    local imagem = Instance.new("ImageLabel")
+    imagem.Name = "Imagem"
+    imagem.Parent = card
+    imagem.Size = UDim2.new(1, -20, 0, 100)
+    imagem.Position = UDim2.new(0, 10, 0, 10)
+    imagem.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    imagem.Image = item.icone
+    
+    local imagemCorner = Instance.new("UICorner")
+    imagemCorner.Parent = imagem
+    imagemCorner.CornerRadius = UDim.new(0, 6)
+    
+    -- Nome do item
+    local nome = Instance.new("TextLabel")
+    nome.Name = "Nome"
+    nome.Parent = card
+    nome.Size = UDim2.new(1, -20, 0, 20)
+    nome.Position = UDim2.new(0, 10, 0, 120)
+    nome.BackgroundTransparency = 1
+    nome.Text = item.nome
+    nome.TextColor3 = CONFIG.corTexto
+    nome.Font = Enum.Font.GothamBold
+    nome.TextSize = 14
+    nome.TextXAlignment = Enum.TextXAlignment.Left
+    
+    -- Preço do item
+    local preco = Instance.new("TextLabel")
+    preco.Name = "Preco"
+    preco.Parent = card
+    preco.Size = UDim2.new(1, -20, 0, 20)
+    preco.Position = UDim2.new(0, 10, 0, 140)
+    preco.BackgroundTransparency = 1
+    preco.Text = FormatarNumero(item.preco) .. " DC"
+    preco.TextColor3 = CONFIG.corDestaque
+    preco.Font = Enum.Font.GothamSemibold
+    preco.TextSize = 14
+    preco.TextXAlignment = Enum.TextXAlignment.Left
+    
+    -- Botão de compra
     local botaoComprar = Instance.new("TextButton")
     botaoComprar.Name = "BotaoComprar"
-    botaoComprar.Size = UDim2.new(0.8, 0, 0, 40)
-    botaoComprar.Position = UDim2.new(0.1, 0, 0, 280)
-    botaoComprar.BackgroundColor3 = Color3.fromRGB(76, 175, 80) -- Verde
-    botaoComprar.TextColor3 = Color3.new(1, 1, 1)
-    botaoComprar.TextSize = 18
-    botaoComprar.Font = Enum.Font.SourceSansBold
-    botaoComprar.Text = "COMPRAR"
-    botaoComprar.BorderSizePixel = 0
-    botaoComprar.Parent = detalhesFrame
+    botaoComprar.Parent = card
+    botaoComprar.Size = UDim2.new(1, -20, 0, 30)
+    botaoComprar.Position = UDim2.new(0, 10, 0, 160)
+    botaoComprar.BackgroundColor3 = CONFIG.corPrimaria
+    botaoComprar.Text = "Comprar"
+    botaoComprar.TextColor3 = CONFIG.corTexto
+    botaoComprar.Font = Enum.Font.GothamBold
+    botaoComprar.TextSize = 14
     
-    elementosLoja.detalhesFrame = detalhesFrame
-    elementosLoja.itemImagem = itemImagem
-    elementosLoja.itemNome = itemNome
-    elementosLoja.itemDescricao = itemDescricao
-    elementosLoja.itemPreco = itemPreco
-    elementosLoja.botaoComprar = botaoComprar
+    local botaoCorner = Instance.new("UICorner")
+    botaoCorner.Parent = botaoComprar
+    botaoCorner.CornerRadius = UDim.new(0, 6)
     
-    -- Conectar evento de compra
-    botaoComprar.MouseButton1Click:Connect(ComprarItemSelecionado)
-    
-    -- Botão para fechar a loja
-    local botaoFechar = Instance.new("TextButton")
-    botaoFechar.Name = "BotaoFechar"
-    botaoFechar.Size = UDim2.new(0, 40, 0, 40)
-    botaoFechar.Position = UDim2.new(1, -50, 0, 10)
-    botaoFechar.BackgroundTransparency = 0.5
-    botaoFechar.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    botaoFechar.TextColor3 = Color3.new(1, 1, 1)
-    botaoFechar.TextSize = 20
-    botaoFechar.Font = Enum.Font.SourceSansBold
-    botaoFechar.Text = "X"
-    botaoFechar.BorderSizePixel = 0
-    botaoFechar.Parent = lojaFrame
-    
-    botaoFechar.MouseButton1Click:Connect(function()
-        lojaFrame.Visible = false
+    -- Adicionar efeito de hover
+    botaoComprar.MouseEnter:Connect(function()
+        TweenService:Create(botaoComprar, TweenInfo.new(0.2), {BackgroundColor3 = CONFIG.corSecundaria}):Play()
     end)
     
-    -- Selecionar categoria inicial
-    SelecionarCategoria("decoracoes")
+    botaoComprar.MouseLeave:Connect(function()
+        TweenService:Create(botaoComprar, TweenInfo.new(0.2), {BackgroundColor3 = CONFIG.corPrimaria}):Play()
+    end)
+    
+    -- Adicionar funcionalidade de compra
+    botaoComprar.MouseButton1Click:Connect(function()
+        -- Desabilitar botão durante o processamento
+        botaoComprar.Text = "Processando..."
+        botaoComprar.BackgroundColor3 = CONFIG.corSecundaria
+        botaoComprar.Enabled = false
+        
+        -- Enviar evento de compra para o servidor
+        ComprarItemEvent:FireServer(item.id)
+        
+        -- Aguardar resposta do servidor
+        local conexao
+        conexao = ComprarItemEvent.OnClientEvent:Connect(function(sucesso, mensagem, itemComprado)
+            -- Verificar se é a resposta para este item
+            if itemComprado ~= item.id then return end
+            
+            -- Desconectar evento
+            conexao:Disconnect()
+            
+            -- Atualizar interface baseado no resultado
+            if sucesso then
+                botaoComprar.Text = "Comprado!"
+                botaoComprar.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+                
+                -- Mostrar mensagem de sucesso
+                MostrarNotificacao(mensagem, true)
+                
+                -- Reativar botão após 2 segundos
+                wait(2)
+                botaoComprar.Enabled = true
+                botaoComprar.Text = "Comprar"
+                botaoComprar.BackgroundColor3 = CONFIG.corPrimaria
+            else
+                -- Mostrar mensagem de erro
+                MostrarNotificacao(mensagem, false)
+                
+                -- Reativar botão
+                botaoComprar.Enabled = true
+                botaoComprar.Text = "Comprar"
+                botaoComprar.BackgroundColor3 = CONFIG.corPrimaria
+            end
+        end)
+        
+        -- Timeout para caso o servidor não responda
+        wait(5)
+        if botaoComprar.Text == "Processando..." then
+            botaoComprar.Enabled = true
+            botaoComprar.Text = "Comprar"
+            botaoComprar.BackgroundColor3 = CONFIG.corPrimaria
+            
+            -- Mostrar mensagem de erro
+            MostrarNotificacao("Tempo esgotado. Tente novamente.", false)
+            
+            -- Desconectar evento
+            if conexao then conexao:Disconnect() end
+        end
+    end)
+    
+    -- Adicionar efeito de clique no card
+    card.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            -- Selecionar item
+            SelecionarItem(item, card)
+        end
+    end)
+    
+    return card
 end
 
--- Função para selecionar uma categoria
-function SelecionarCategoria(categoria)
-    -- Atualizar visual dos botões
-    for cat, botao in pairs(elementosLoja.botoesCategorias) do
-        if cat == categoria then
-            botao.BackgroundColor3 = Color3.fromRGB(76, 175, 80) -- Verde para selecionado
-        else
-            botao.BackgroundColor3 = Color3.fromRGB(45, 45, 45) -- Cinza para não selecionado
-        end
+-- Selecionar um item
+function SelecionarItem(item, card)
+    -- Deselecionar item anterior
+    if elementosLoja.itemSelecionado then
+        elementosLoja.itemSelecionado.BackgroundColor3 = CONFIG.corFundo
     end
     
-    elementosLoja.categoriaAtual = categoria
-    AtualizarItensPorCategoria(categoria)
+    -- Selecionar novo item
+    card.BackgroundColor3 = CONFIG.corSecundaria
+    elementosLoja.itemSelecionado = card
+    
+    -- Mostrar detalhes do item
+    MostrarDetalhesItem(item)
 end
 
--- Função para atualizar os itens exibidos por categoria
-function AtualizarItensPorCategoria(categoria)
-    -- Limpar itens atuais
+-- Mostrar detalhes do item
+function MostrarDetalhesItem(item)
+    -- Implementação futura
+end
+
+-- Mostrar notificação
+function MostrarNotificacao(mensagem, sucesso)
+    local gui = player.PlayerGui:WaitForChild("MainGui")
+    local notificacao = gui:FindFirstChild("Notificacao")
+    
+    if not notificacao then
+        notificacao = Instance.new("Frame")
+        notificacao.Name = "Notificacao"
+        notificacao.Parent = gui
+        notificacao.Size = UDim2.new(0, 300, 0, 50)
+        notificacao.Position = UDim2.new(0.5, -150, 0, -60)
+        notificacao.BackgroundColor3 = CONFIG.corFundo
+        notificacao.ZIndex = 10
+        
+        local corner = Instance.new("UICorner")
+        corner.Parent = notificacao
+        corner.CornerRadius = UDim.new(0, 8)
+        
+        local texto = Instance.new("TextLabel")
+        texto.Name = "Texto"
+        texto.Parent = notificacao
+        texto.Size = UDim2.new(1, -20, 1, 0)
+        texto.Position = UDim2.new(0, 10, 0, 0)
+        texto.BackgroundTransparency = 1
+        texto.TextColor3 = CONFIG.corTexto
+        texto.Font = Enum.Font.GothamSemibold
+        texto.TextSize = 14
+        texto.TextWrapped = true
+        texto.ZIndex = 11
+    end
+    
+    -- Atualizar texto e cor
+    local texto = notificacao:FindFirstChild("Texto")
+    texto.Text = mensagem
+    
+    if sucesso then
+        notificacao.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+    else
+        notificacao.BackgroundColor3 = CONFIG.corErro
+    end
+    
+    -- Animar entrada
+    notificacao:TweenPosition(UDim2.new(0.5, -150, 0, 20), Enum.EasingDirection.Out, Enum.EasingStyle.Bounce, 0.5, true)
+    
+    -- Agendar saída
+    spawn(function()
+        wait(3)
+        notificacao:TweenPosition(UDim2.new(0.5, -150, 0, -60), Enum.EasingDirection.In, Enum.EasingStyle.Quad, 0.5, true)
+    end)
+end
+
+-- Atualizar itens visíveis com base na categoria e pesquisa
+function AtualizarItensVisiveis()
+    -- Limpar itens existentes
     for _, item in pairs(elementosLoja.itensVisiveis) do
         item:Destroy()
     end
     elementosLoja.itensVisiveis = {}
     
-    -- Obter itens da categoria
-    local itens = catalogoItens[categoria] or {}
+    -- Obter itens da categoria atual
+    local itensCategoria = ITENS_LOJA[elementosLoja.categoriaAtual] or {}
+    
+    -- Filtrar por termo de pesquisa
     local itensFiltrados = {}
+    local termoPesquisa = elementosLoja.termoPesquisa:lower()
     
-    -- Aplicar filtro de pesquisa
-    if elementosLoja.termoPesquisa and elementosLoja.termoPesquisa ~= "" then
-        for _, item in ipairs(itens) do
-            if string.find(item.nome:lower(), elementosLoja.termoPesquisa) or 
-               string.find(item.descricao:lower(), elementosLoja.termoPesquisa) then
-                table.insert(itensFiltrados, item)
-            end
+    for _, item in ipairs(itensCategoria) do
+        if termoPesquisa == "" or 
+           string.find(item.nome:lower(), termoPesquisa) or 
+           string.find(item.descricao:lower(), termoPesquisa) then
+            table.insert(itensFiltrados, item)
         end
-    else
-        itensFiltrados = itens
     end
     
-    -- Criar elementos de interface para cada item
+    -- Criar cards para itens filtrados
     for i, item in ipairs(itensFiltrados) do
-        local itemFrame = CriarElementoItem(item, i)
-        table.insert(elementosLoja.itensVisiveis, itemFrame)
-    end
-    
-    -- Esconder detalhes se não houver itens
-    if #itensFiltrados == 0 then
-        elementosLoja.detalhesFrame.Visible = false
-    end
-end
-
--- Função para criar um elemento de item na lista
-function CriarElementoItem(item, indice)
-    local itensFrame = elementosLoja.itensFrame
-    
-    -- Calcular posição
-    local posY = (indice - 1) * 110
-    
-    -- Criar frame do item
-    local itemFrame = Instance.new("Frame")
-    itemFrame.Name = "Item_" .. item.id
-    itemFrame.Size = UDim2.new(1, -20, 0, 100)
-    itemFrame.Position = UDim2.new(0, 10, 0, posY + 10)
-    itemFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    itemFrame.BorderSizePixel = 0
-    itemFrame.Parent = itensFrame
-    
-    -- Imagem do item
-    local itemImagem = Instance.new("ImageLabel")
-    itemImagem.Name = "Imagem"
-    itemImagem.Size = UDim2.new(0, 80, 0, 80)
-    itemImagem.Position = UDim2.new(0, 10, 0, 10)
-    itemImagem.BackgroundTransparency = 1
-    itemImagem.Image = item.icone
-    itemImagem.Parent = itemFrame
-    
-    -- Nome do item
-    local itemNome = Instance.new("TextLabel")
-    itemNome.Name = "Nome"
-    itemNome.Size = UDim2.new(1, -110, 0, 30)
-    itemNome.Position = UDim2.new(0, 100, 0, 10)
-    itemNome.BackgroundTransparency = 1
-    itemNome.TextColor3 = Color3.new(1, 1, 1)
-    itemNome.TextSize = 16
-    itemNome.Font = Enum.Font.SourceSansBold
-    itemNome.Text = item.nome
-    itemNome.TextXAlignment = Enum.TextXAlignment.Left
-    itemNome.Parent = itemFrame
-    
-    -- Descrição curta
-    local itemDescricao = Instance.new("TextLabel")
-    itemDescricao.Name = "Descricao"
-    itemDescricao.Size = UDim2.new(1, -110, 0, 40)
-    itemDescricao.Position = UDim2.new(0, 100, 0, 40)
-    itemDescricao.BackgroundTransparency = 1
-    itemDescricao.TextColor3 = Color3.new(0.9, 0.9, 0.9)
-    itemDescricao.TextSize = 14
-    itemDescricao.Font = Enum.Font.SourceSans
-    itemDescricao.Text = item.descricao
-    itemDescricao.TextWrapped = true
-    itemDescricao.TextXAlignment = Enum.TextXAlignment.Left
-    itemDescricao.TextYAlignment = Enum.TextYAlignment.Top
-    itemDescricao.Parent = itemFrame
-    
-    -- Preço
-    local itemPreco = Instance.new("TextLabel")
-    itemPreco.Name = "Preco"
-    itemPreco.Size = UDim2.new(0, 100, 0, 20)
-    itemPreco.Position = UDim2.new(1, -110, 0, 70)
-    itemPreco.BackgroundTransparency = 1
-    itemPreco.TextColor3 = Color3.fromRGB(255, 215, 0) -- Dourado
-    itemPreco.TextSize = 16
-    itemPreco.Font = Enum.Font.SourceSansBold
-    itemPreco.Text = FormatarNumero(item.preco) .. " 💰"
-    itemPreco.Parent = itemFrame
-    
-    -- Botão de seleção (todo o frame é clicável)
-    local botaoSelecionar = Instance.new("TextButton")
-    botaoSelecionar.Name = "BotaoSelecionar"
-    botaoSelecionar.Size = UDim2.new(1, 0, 1, 0)
-    botaoSelecionar.BackgroundTransparency = 1
-    botaoSelecionar.Text = ""
-    botaoSelecionar.Parent = itemFrame
-    
-    -- Conectar evento de clique
-    botaoSelecionar.MouseButton1Click:Connect(function()
-        SelecionarItem(item)
-    end)
-    
-    return itemFrame
-end
-
--- Função para selecionar um item
-function SelecionarItem(item)
-    elementosLoja.itemSelecionado = item
-    
-    -- Atualizar detalhes
-    elementosLoja.itemImagem.Image = item.icone
-    elementosLoja.itemNome.Text = item.nome
-    elementosLoja.itemDescricao.Text = item.descricao
-    elementosLoja.itemPreco.Text = FormatarNumero(item.preco) .. " DreamCoins"
-    
-    -- Mostrar frame de detalhes
-    elementosLoja.detalhesFrame.Visible = true
-    
-    -- Atualizar botão de compra
-    local moedas = tonumber(mainGui.HUD.MoedasFrame.ValorMoedas.Text) or 0
-    
-    if moedas >= item.preco then
-        elementosLoja.botaoComprar.BackgroundColor3 = Color3.fromRGB(76, 175, 80) -- Verde
-        elementosLoja.botaoComprar.Text = "COMPRAR"
-    else
-        elementosLoja.botaoComprar.BackgroundColor3 = Color3.fromRGB(150, 150, 150) -- Cinza
-        elementosLoja.botaoComprar.Text = "MOEDAS INSUFICIENTES"
-    end
-end
-
--- Função para comprar o item selecionado
-function ComprarItemSelecionado()
-    local item = elementosLoja.itemSelecionado
-    if not item then return end
-    
-    -- Verificar se tem moedas suficientes
-    local moedas = tonumber(mainGui.HUD.MoedasFrame.ValorMoedas.Text) or 0
-    
-    if moedas < item.preco then
-        MostrarNotificacao("Moedas Insuficientes", "Você não tem DreamCoins suficientes para comprar este item.", "erro")
-        return
-    end
-    
-    -- Enviar solicitação de compra para o servidor
-    -- Enviamos **apenas** o itemId (o servidor não espera o segundo parâmetro)
-    comprarItemEvent:FireServer(item.id)
-    
-    -- Feedback visual temporário (será atualizado pelo servidor)
-    elementosLoja.botaoComprar.Text = "PROCESSANDO..."
-    elementosLoja.botaoComprar.BackgroundColor3 = Color3.fromRGB(150, 150, 150) -- Cinza
-end
-
--- Função para processar resposta de compra do servidor
-local function ProcessarRespostaCompra(sucesso, itemId, novasMoedas, mensagem)
-    if sucesso then
-        -- Atualizar moedas localmente (o servidor também enviará uma atualização)
-        mainGui.HUD.MoedasFrame.ValorMoedas.Text = tostring(novasMoedas)
+        local card = CriarItemCard(item)
+        card.Parent = elementosLoja.gridFrame
+        card.LayoutOrder = i
         
-        -- Mostrar notificação de sucesso
-        MostrarNotificacao("Compra Realizada", mensagem or "Item adquirido com sucesso!", "sucesso")
-        
-        -- Efeito visual de compra bem-sucedida
-        local item = elementosLoja.itemSelecionado
-        if item and item.id == itemId then
-            -- Atualizar botão
-            elementosLoja.botaoComprar.Text = "COMPRADO!"
-            elementosLoja.botaoComprar.BackgroundColor3 = Color3.fromRGB(76, 175, 80) -- Verde
-            
-            -- Após um tempo, voltar ao normal
-            task.delay(2, function()
-                if elementosLoja.itemSelecionado and elementosLoja.itemSelecionado.id == itemId then
-                    elementosLoja.botaoComprar.Text = "COMPRAR"
-                end
-            end)
-        end
-    else
-        -- Mostrar notificação de erro
-        MostrarNotificacao("Erro na Compra", mensagem or "Não foi possível completar a compra.", "erro")
-        
-        -- Restaurar botão
-        elementosLoja.botaoComprar.Text = "COMPRAR"
-        elementosLoja.botaoComprar.BackgroundColor3 = Color3.fromRGB(76, 175, 80) -- Verde
+        table.insert(elementosLoja.itensVisiveis, card)
     end
-end
-
--- Função para mostrar preview 3D do item
-local function MostrarPreview3D(itemId)
-    -- Esta função seria implementada para mostrar um modelo 3D
-    -- Por enquanto, apenas um placeholder
-    print("Mostrando preview 3D para o item: " .. itemId)
     
-    -- Implementação futura:
-    -- 1. Criar um ViewportFrame
-    -- 2. Carregar o modelo 3D do item
-    -- 3. Adicionar ao ViewportFrame com rotação automática
+    -- Atualizar tamanho do canvas
+    local linhas = math.ceil(#itensFiltrados / 3)
+    elementosLoja.gridFrame.CanvasSize = UDim2.new(0, 0, 0, linhas * 210)
 end
 
 -- Inicializar a interface da loja
-local function Inicializar()
-    print("📱 Loja: Inicializando interface da loja...")
+local function InicializarLoja()
+    local gui = player.PlayerGui:WaitForChild("MainGui")
+    local lojaFrame = gui:WaitForChild("LojaFrame")
     
-    -- Criar a interface básica
-    CriarInterfaceLoja()
+    -- Criar elementos da interface
+    CriarCampoPesquisa(lojaFrame)
+    CriarBotoesCategorias(lojaFrame)
+    CriarGridItens(lojaFrame)
     
-    -- Conectar eventos remotos
-    comprarItemEvent.OnClientEvent:Connect(ProcessarRespostaCompra)
+    -- Atualizar itens visíveis iniciais
+    AtualizarItensVisiveis()
     
-    print("📱 Loja: Interface inicializada com sucesso!")
+    print("LojaGui: Interface da loja inicializada")
 end
 
--- Iniciar quando o script carregar
-Inicializar()
+-- Inicializar quando o script é carregado
+InicializarLoja()
