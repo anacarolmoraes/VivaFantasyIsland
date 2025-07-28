@@ -15,10 +15,13 @@
     - Sistema de LOD (Level of Detail)
     - Otimização de performance
     - Versionamento de modelos
+    - Efeitos especiais por categoria
+    - Sistema de preços balanceado
+    - Validação automática de integridade
     
     Autor: Factory AI
     Data: 27/07/2025
-    Versão: 1.0.0
+    Versão: 2.0.0
 ]]
 
 -- Serviços do Roblox
@@ -26,27 +29,59 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 local ContentProvider = game:GetService("ContentProvider")
 local RunService = game:GetService("RunService")
+local PhysicsService = game:GetService("PhysicsService")
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
 
 -- Constantes
-local VERSAO_SISTEMA = "1.0.0"
+local VERSAO_SISTEMA = "2.0.0"
 local PASTA_MODELOS = ServerStorage:WaitForChild("Modelos")
 local PASTA_MODELOS_FALLBACK = ServerStorage:WaitForChild("ModelosFallback")
-local MAX_CACHE_SIZE = 50 -- Número máximo de modelos em cache
-local TEMPO_CACHE = 300 -- Tempo em segundos para manter modelos em cache sem uso
+local MAX_CACHE_SIZE = 75 -- Aumentado para suportar mais itens
+local TEMPO_CACHE = 600 -- Aumentado para 10 minutos
 local DISTANCIA_LOD = {
-    ALTA = 20,    -- Distância para LOD alta qualidade
-    MEDIA = 50,   -- Distância para LOD média qualidade
-    BAIXA = 100,  -- Distância para LOD baixa qualidade
-    MUITO_BAIXA = 200 -- Distância para LOD muito baixa qualidade
+    ALTA = 25,    -- Aumentado para melhor qualidade visual
+    MEDIA = 60,   -- Distância para LOD média qualidade
+    BAIXA = 120,  -- Distância para LOD baixa qualidade
+    MUITO_BAIXA = 250 -- Distância para LOD muito baixa qualidade
+}
+
+--- Categorias de itens
+local CATEGORIAS = {
+    DECORACOES = "decoracoes",
+    MOVEIS = "moveis",
+    PLANTAS = "plantas",
+    ESPECIAIS = "especiais",
+    FERRAMENTAS = "ferramentas"
+}
+
+--- Faixas de preço balanceadas por categoria
+local FAIXAS_PRECO = {
+    [CATEGORIAS.DECORACOES] = {min = 50, max = 300},
+    [CATEGORIAS.MOVEIS] = {min = 80, max = 500},
+    [CATEGORIAS.PLANTAS] = {min = 30, max = 250},
+    [CATEGORIAS.ESPECIAIS] = {min = 200, max = 1000},
+    [CATEGORIAS.FERRAMENTAS] = {min = 40, max = 150}
 }
 
 -- Tabelas de cache
 local cacheModelos = {} -- Cache de modelos carregados
 local cacheTempoUso = {} -- Registro do último uso de cada modelo
 local cacheContadorUso = {} -- Contador de uso de cada modelo
+local cachePrioridade = {} -- Prioridade de cada modelo no cache (1-10)
 
 -- Tabela de status de carregamento
 local carregamentoPendente = {} -- Modelos em processo de carregamento
+
+--- Estatísticas de uso
+local estatisticas = {
+    carregamentos = 0,
+    cacheHits = 0,
+    cacheMisses = 0,
+    fallbacksUsados = 0,
+    tempoTotalCarregamento = 0,
+    iniciadoEm = os.time()
+}
 
 -- Módulo
 local ModelosItens = {}
@@ -57,12 +92,13 @@ local definicoes = {
     cerca_madeira = {
         nome = "Cerca de Madeira",
         descricao = "Uma cerca rústica para delimitar sua propriedade.",
-        categoria = "decoracoes",
+        categoria = CATEGORIAS.DECORACOES,
+        preco = 50,
         
         -- Configurações do modelo 3D
         modelo = {
             path = "cerca_madeira_v1", -- Nome do modelo no ServerStorage/Modelos
-            versao = "1.0.0",
+            versao = "1.0.1", -- Versão atualizada
             tamanho = Vector3.new(2, 1, 0.2),
             offset = Vector3.new(0, 0.5, 0),
             rotacionavel = true,
@@ -144,12 +180,13 @@ local definicoes = {
     arvore_pequena = {
         nome = "Árvore Pequena",
         descricao = "Uma árvore jovem para sua ilha.",
-        categoria = "plantas",
+        categoria = CATEGORIAS.PLANTAS,
+        preco = 100,
         
         -- Configurações do modelo 3D
         modelo = {
             path = "arvore_pequena_v1",
-            versao = "1.0.0",
+            versao = "1.0.1", -- Versão atualizada
             tamanho = Vector3.new(2, 3, 2),
             offset = Vector3.new(0, 1.5, 0),
             rotacionavel = true,
@@ -259,12 +296,13 @@ local definicoes = {
     mesa_madeira = {
         nome = "Mesa de Madeira",
         descricao = "Uma mesa robusta para sua casa.",
-        categoria = "moveis",
+        categoria = CATEGORIAS.MOVEIS,
+        preco = 120,
         
         -- Configurações do modelo 3D
         modelo = {
             path = "mesa_madeira_v1",
-            versao = "1.0.0",
+            versao = "1.0.1", -- Versão atualizada
             tamanho = Vector3.new(2, 1, 2),
             offset = Vector3.new(0, 0.5, 0),
             rotacionavel = true,
@@ -377,12 +415,13 @@ local definicoes = {
     cadeira_simples = {
         nome = "Cadeira Simples",
         descricao = "Uma cadeira básica e confortável.",
-        categoria = "moveis",
+        categoria = CATEGORIAS.MOVEIS,
+        preco = 80,
         
         -- Configurações do modelo 3D
         modelo = {
             path = "cadeira_simples_v1",
-            versao = "1.0.0",
+            versao = "1.0.1", -- Versão atualizada
             tamanho = Vector3.new(1, 1.5, 1),
             offset = Vector3.new(0, 0.75, 0),
             rotacionavel = true,
@@ -511,12 +550,13 @@ local definicoes = {
     flor_azul = {
         nome = "Flores Azuis",
         descricao = "Um canteiro de belas flores azuis.",
-        categoria = "plantas",
+        categoria = CATEGORIAS.PLANTAS,
+        preco = 30,
         
         -- Configurações do modelo 3D
         modelo = {
             path = "flor_azul_v1",
-            versao = "1.0.0",
+            versao = "1.0.1", -- Versão atualizada
             tamanho = Vector3.new(0.5, 0.5, 0.5),
             offset = Vector3.new(0, 0.25, 0),
             rotacionavel = true,
@@ -648,12 +688,13 @@ local definicoes = {
     estatua_pequena = {
         nome = "Estátua de Pedra",
         descricao = "Uma pequena estátua decorativa.",
-        categoria = "decoracoes",
+        categoria = CATEGORIAS.DECORACOES,
+        preco = 200,
         
         -- Configurações do modelo 3D
         modelo = {
             path = "estatua_pequena_v1",
-            versao = "1.0.0",
+            versao = "1.0.1", -- Versão atualizada
             tamanho = Vector3.new(1, 2, 1),
             offset = Vector3.new(0, 1, 0),
             rotacionavel = true,
@@ -758,623 +799,1165 @@ local definicoes = {
                 }
             }
         }
-    }
-}
+    },
 
--- Funções auxiliares
+    -- NOVOS ITENS: DECORAÇÕES
 
--- Função para criar um modelo fallback simples
-local function CriarModeloFallback(itemId)
-    local definicao = definicoes[itemId]
-    if not definicao then return nil end
-    
-    local configFallback = definicao.modelo.fallback
-    local modelo = Instance.new("Model")
-    modelo.Name = itemId .. "_fallback"
-    
-    if configFallback.tipo == "parte" then
-        -- Criar uma parte simples
-        local parte = Instance.new("Part")
-        parte.Size = configFallback.tamanho
-        parte.Color = configFallback.cor
-        parte.Material = configFallback.material
-        parte.Anchored = true
-        parte.CanCollide = true
-        parte.Parent = modelo
-        modelo.PrimaryPart = parte
+    -- Fonte de Pedra
+    fonte_pedra = {
+        nome = "Fonte de Pedra",
+        descricao = "Uma elegante fonte de água para embelezar seu jardim.",
+        categoria = CATEGORIAS.DECORACOES,
+        preco = 280,
         
-    elseif configFallback.tipo == "composto" then
-        -- Criar um modelo composto de várias partes
-        local primaryPartSet = false
-        
-        for nome, config in pairs(configFallback.componentes) do
-            local parte
+        -- Configurações do modelo 3D
+        modelo = {
+            path = "fonte_pedra_v1",
+            versao = "1.0.0",
+            tamanho = Vector3.new(3, 2.5, 3),
+            offset = Vector3.new(0, 1.25, 0),
+            rotacionavel = true,
+            rotacaoPadrao = CFrame.Angles(0, 0, 0),
             
-            if config.tipo == "bloco" then
-                parte = Instance.new("Part")
-                parte.Shape = Enum.PartType.Block
-            elseif config.tipo == "esfera" then
-                parte = Instance.new("Part")
-                parte.Shape = Enum.PartType.Ball
-            elseif config.tipo == "cilindro" then
-                parte = Instance.new("Part")
-                parte.Shape = Enum.PartType.Cylinder
-            else
-                parte = Instance.new("Part")
-            end
+            -- Materiais e texturas
+            materiais = {
+                pedra = {
+                    material = Enum.Material.Slate,
+                    cor = Color3.fromRGB(170, 170, 170),
+                    textura = "rbxassetid://6797381023",
+                    propriedades = {
+                        Roughness = 0.8,
+                        Metalness = 0.1
+                    }
+                },
+                agua = {
+                    material = Enum.Material.Glass,
+                    cor = Color3.fromRGB(90, 140, 255),
+                    textura = "rbxassetid://6797381123",
+                    propriedades = {
+                        Roughness = 0.1,
+                        Metalness = 0,
+                        Transparency = 0.7,
+                        Reflectance = 0.3
+                    }
+                }
+            },
             
-            parte.Name = nome
-            parte.Size = config.tamanho
-            parte.Position = config.posicao
-            parte.Color = config.cor
-            parte.Material = config.material
-            parte.Anchored = true
-            parte.CanCollide = true
-            parte.Parent = modelo
+            -- Configurações de LOD
+            lod = {
+                alta = {
+                    path = "fonte_pedra_v1_lod0",
+                    triangulos = 6000,
+                    texturaResolucao = 1024
+                },
+                media = {
+                    path = "fonte_pedra_v1_lod1",
+                    triangulos = 3000,
+                    texturaResolucao = 512
+                },
+                baixa = {
+                    path = "fonte_pedra_v1_lod2",
+                    triangulos = 1500,
+                    texturaResolucao = 256
+                },
+                muito_baixa = {
+                    path = "fonte_pedra_v1_lod3",
+                    triangulos = 800,
+                    texturaResolucao = 128
+                }
+            },
             
-            if not primaryPartSet then
-                modelo.PrimaryPart = parte
-                primaryPartSet = true
-            end
-        end
-    end
-    
-    return modelo
-end
-
--- Função para aplicar materiais e texturas a um modelo
-local function AplicarMateriaisETexturas(modelo, itemId)
-    local definicao = definicoes[itemId]
-    if not definicao or not definicao.modelo.materiais then return end
-    
-    -- Iterar sobre todas as partes do modelo
-    for _, parte in pairs(modelo:GetDescendants()) do
-        if parte:IsA("BasePart") then
-            local materialConfig
+            -- Configurações de fallback
+            fallback = {
+                tipo = "composto",
+                componentes = {
+                    base = {
+                        tipo = "cilindro",
+                        tamanho = Vector3.new(3, 0.5, 3),
+                        posicao = Vector3.new(0, 0.25, 0),
+                        cor = Color3.fromRGB(170, 170, 170),
+                        material = Enum.Material.Slate
+                    },
+                    bacia = {
+                        tipo = "cilindro",
+                        tamanho = Vector3.new(2.5, 0.3, 2.5),
+                        posicao = Vector3.new(0, 0.65, 0),
+                        cor = Color3.fromRGB(170, 170, 170),
+                        material = Enum.Material.Slate
+                    },
+                    agua = {
+                        tipo = "cilindro",
+                        tamanho = Vector3.new(2.2, 0.1, 2.2),
+                        posicao = Vector3.new(0, 0.7, 0),
+                        cor = Color3.fromRGB(90, 140, 255),
+                        material = Enum.Material.Glass,
+                        transparencia = 0.7
+                    },
+                    pilar = {
+                        tipo = "cilindro",
+                        tamanho = Vector3.new(0.6, 1.5, 0.6),
+                        posicao = Vector3.new(0, 1.45, 0),
+                        cor = Color3.fromRGB(170, 170, 170),
+                        material = Enum.Material.Slate
+                    },
+                    topo = {
+                        tipo = "esfera",
+                        tamanho = Vector3.new(0.8, 0.8, 0.8),
+                        posicao = Vector3.new(0, 2.1, 0),
+                        cor = Color3.fromRGB(170, 170, 170),
+                        material = Enum.Material.Slate
+                    }
+                }
+            },
             
-            -- Tentar encontrar a configuração de material correspondente
-            if parte.Name:lower():find("principal") then
-                materialConfig = definicao.modelo.materiais.principal
-            elseif parte.Name:lower():find("secundario") then
-                materialConfig = definicao.modelo.materiais.secundario
-            else
-                -- Procurar por correspondência específica
-                for nomeMaterial, config in pairs(definicao.modelo.materiais) do
-                    if parte.Name:lower():find(nomeMaterial:lower()) then
-                        materialConfig = config
-                        break
-                    end
-                end
-                
-                -- Se não encontrou, usar o principal
-                if not materialConfig and definicao.modelo.materiais.principal then
-                    materialConfig = definicao.modelo.materiais.principal
-                end
-            end
+            -- Configurações de física
+            fisica = {
+                massa = 500,
+                tipo = "mesh",
+                anchored = true,
+                canCollide = true
+            },
             
-            -- Aplicar configurações de material se encontrado
-            if materialConfig then
-                parte.Material = materialConfig.material
-                parte.Color = materialConfig.cor
-                
-                -- Aplicar textura se especificada
-                if materialConfig.textura then
-                    local textura = Instance.new("Decal")
-                    textura.Texture = materialConfig.textura
-                    textura.Face = Enum.NormalId.Front
-                    textura.Parent = parte
-                end
-                
-                -- Aplicar propriedades avançadas de material
-                if materialConfig.propriedades then
-                    for prop, valor in pairs(materialConfig.propriedades) do
-                        pcall(function()
-                            parte[prop] = valor
-                        end)
-                    end
-                end
-            end
-        end
-    end
-end
-
--- Função para aplicar configurações de física a um modelo
-local function AplicarConfiguracoesDeDisica(modelo, itemId)
-    local definicao = definicoes[itemId]
-    if not definicao or not definicao.modelo.fisica then return end
-    
-    local configFisica = definicao.modelo.fisica
-    
-    for _, parte in pairs(modelo:GetDescendants()) do
-        if parte:IsA("BasePart") then
-            parte.Anchored = configFisica.anchored
-            parte.CanCollide = configFisica.canCollide
+            -- Configurações de colocação
+            colocacao = {
+                superficie = {"terreno", "plataforma"},
+                angulos = {0, 90, 180, 270},
+                altura = 0,
+                distanciaMinima = 2
+            },
             
-            -- Tentar definir outras propriedades físicas
-            pcall(function()
-                parte.CustomPhysicalProperties = PhysicalProperties.new(
-                    configFisica.densidade or 0.7,
-                    configFisica.friccao or 0.3,
-                    configFisica.elasticidade or 0.5,
-                    configFisica.peso or 1,
-                    configFisica.friccaoDeRotacao or 0.1
-                )
-            end)
-        end
-    end
-end
-
--- Função para aplicar efeitos especiais a um modelo
-local function AplicarEfeitosEspeciais(modelo, itemId)
-    local definicao = definicoes[itemId]
-    if not definicao or not definicao.modelo.efeitos then return end
-    
-    local configEfeitos = definicao.modelo.efeitos
-    
-    -- Aplicar efeito de vento
-    if configEfeitos.vento and configEfeitos.vento.ativo then
-        -- Implementação simplificada do efeito de vento
-        local script = Instance.new("Script")
-        script.Name = "EfeitoVento"
-        script.Source = [[
-            local modelo = script.Parent
-            local intensidade = ]] .. configEfeitos.vento.intensidade .. [[
-            local frequencia = ]] .. configEfeitos.vento.frequencia .. [[
-            
-            while true do
-                for _, parte in pairs(modelo:GetDescendants()) do
-                    if parte:IsA("BasePart") and not parte.Name:lower():find("base") then
-                        local offset = math.sin(tick() * frequencia) * intensidade
-                        parte.CFrame = parte.CFrame * CFrame.Angles(offset/10, 0, offset/10)
-                    end
-                end
-                wait(0.1)
-            end
-        ]]
-        script.Parent = modelo
-    end
-    
-    -- Aplicar efeito de partículas
-    if configEfeitos.particulas then
-        local emitter = Instance.new("ParticleEmitter")
-        emitter.Rate = configEfeitos.particulas.taxa * 10 -- Taxa por segundo
-        emitter.Size = NumberSequence.new(configEfeitos.particulas.tamanho)
-        emitter.Color = ColorSequence.new(configEfeitos.particulas.cor)
-        emitter.Lifetime = NumberRange.new(2, 5)
-        emitter.Speed = NumberRange.new(0.1, 0.5)
-        emitter.SpreadAngle = Vector2.new(0, 180)
-        emitter.Parent = modelo.PrimaryPart
-    end
-    
-    -- Aplicar efeito de brilho
-    if configEfeitos.brilho and configEfeitos.brilho.ativo then
-        local brilho = Instance.new("PointLight")
-        brilho.Color = configEfeitos.brilho.cor
-        brilho.Brightness = configEfeitos.brilho.intensidade
-        brilho.Range = configEfeitos.brilho.alcance
-        brilho.Parent = modelo.PrimaryPart
-    end
-    
-    -- Aplicar efeito de envelhecimento
-    if configEfeitos.envelhecimento and configEfeitos.envelhecimento.ativo then
-        for _, parte in pairs(modelo:GetDescendants()) do
-            if parte:IsA("BasePart") then
-                local textura = Instance.new("Decal")
-                textura.Texture = configEfeitos.envelhecimento.textura
-                textura.Transparency = 1 - configEfeitos.envelhecimento.intensidade
-                textura.Face = Enum.NormalId.Front
-                textura.Parent = parte
-            end
-        end
-    end
-end
-
--- Função para determinar o nível de LOD com base na distância
-local function DeterminarNivelLOD(distancia)
-    if distancia <= DISTANCIA_LOD.ALTA then
-        return "alta"
-    elseif distancia <= DISTANCIA_LOD.MEDIA then
-        return "media"
-    elseif distancia <= DISTANCIA_LOD.BAIXA then
-        return "baixa"
-    else
-        return "muito_baixa"
-    end
-end
-
--- Função para carregar um modelo com o nível de LOD apropriado
-local function CarregarModeloComLOD(itemId, distancia)
-    local definicao = definicoes[itemId]
-    if not definicao then return nil end
-    
-    -- Determinar nível de LOD
-    local nivelLOD = DeterminarNivelLOD(distancia)
-    local pathModelo
-    
-    -- Obter o path do modelo para o nível de LOD
-    if definicao.modelo.lod and definicao.modelo.lod[nivelLOD] then
-        pathModelo = definicao.modelo.lod[nivelLOD].path
-    else
-        -- Se não tiver LOD específico, usar o modelo padrão
-        pathModelo = definicao.modelo.path
-    end
-    
-    -- Tentar carregar o modelo
-    local modelo = PASTA_MODELOS:FindFirstChild(pathModelo)
-    
-    -- Se não encontrar o modelo, tentar o fallback
-    if not modelo then
-        -- Tentar modelo de LOD inferior
-        if nivelLOD == "alta" then
-            return CarregarModeloComLOD(itemId, DISTANCIA_LOD.MEDIA + 1) -- Forçar LOD média
-        elseif nivelLOD == "media" then
-            return CarregarModeloComLOD(itemId, DISTANCIA_LOD.BAIXA + 1) -- Forçar LOD baixa
-        elseif nivelLOD == "baixa" then
-            return CarregarModeloComLOD(itemId, DISTANCIA_LOD.MUITO_BAIXA + 1) -- Forçar LOD muito baixa
-        else
-            -- Criar modelo fallback
-            return CriarModeloFallback(itemId)
-        end
-    end
-    
-    -- Clonar o modelo para não modificar o original
-    local modeloClone = modelo:Clone()
-    
-    -- Aplicar materiais, física e efeitos
-    AplicarMateriaisETexturas(modeloClone, itemId)
-    AplicarConfiguracoesDeDisica(modeloClone, itemId)
-    AplicarEfeitosEspeciais(modeloClone, itemId)
-    
-    return modeloClone
-end
-
--- Função para limpar cache de modelos não utilizados
-local function LimparCache()
-    local tempoAtual = tick()
-    local modelosParaRemover = {}
-    
-    -- Identificar modelos não utilizados por muito tempo
-    for itemId, ultimoUso in pairs(cacheTempoUso) do
-        if (tempoAtual - ultimoUso) > TEMPO_CACHE then
-            table.insert(modelosParaRemover, itemId)
-        end
-    end
-    
-    -- Remover modelos do cache
-    for _, itemId in ipairs(modelosParaRemover) do
-        if cacheModelos[itemId] then
-            cacheModelos[itemId] = nil
-            cacheTempoUso[itemId] = nil
-            cacheContadorUso[itemId] = nil
-            print("ModelosItens: Removido do cache: " .. itemId)
-        end
-    end
-    
-    -- Se ainda tiver muitos modelos em cache, remover os menos usados
-    if #modelosParaRemover < 5 and #cacheModelos > MAX_CACHE_SIZE then
-        local modelosOrdenadosPorUso = {}
-        
-        for itemId, contador in pairs(cacheContadorUso) do
-            table.insert(modelosOrdenadosPorUso, {id = itemId, usos = contador})
-        end
-        
-        -- Ordenar por número de usos (crescente)
-        table.sort(modelosOrdenadosPorUso, function(a, b)
-            return a.usos < b.usos
-        end)
-        
-        -- Remover os 10% menos usados
-        local numParaRemover = math.ceil(#modelosOrdenadosPorUso * 0.1)
-        for i = 1, numParaRemover do
-            local itemId = modelosOrdenadosPorUso[i].id
-            cacheModelos[itemId] = nil
-            cacheTempoUso[itemId] = nil
-            cacheContadorUso[itemId] = nil
-            print("ModelosItens: Removido do cache por baixo uso: " .. itemId)
-        end
-    end
-end
-
--- Função para validar um modelo
-local function ValidarModelo(modelo, itemId)
-    if not modelo then return false, "Modelo nulo" end
-    
-    -- Verificar se tem PrimaryPart
-    if not modelo.PrimaryPart then
-        -- Tentar definir PrimaryPart automaticamente
-        for _, parte in pairs(modelo:GetChildren()) do
-            if parte:IsA("BasePart") then
-                modelo.PrimaryPart = parte
-                break
-            end
-        end
-        
-        if not modelo.PrimaryPart then
-            return false, "Modelo sem PrimaryPart"
-        end
-    end
-    
-    -- Verificar se tem partes
-    local temPartes = false
-    for _, parte in pairs(modelo:GetDescendants()) do
-        if parte:IsA("BasePart") then
-            temPartes = true
-            break
-        end
-    end
-    
-    if not temPartes then
-        return false, "Modelo sem partes"
-    end
-    
-    return true, "Modelo válido"
-end
-
--- Função para pré-carregar modelos frequentemente usados
-local function PreCarregarModelosComuns()
-    -- Lista de itens comuns para pré-carregar
-    local itensComuns = {"cerca_madeira", "arvore_pequena", "flor_azul"}
-    
-    for _, itemId in ipairs(itensComuns) do
-        spawn(function()
-            ModelosItens:ObterModelo(itemId, 10) -- Carregar com LOD média
-        end)
-    end
-end
-
--- API pública do módulo
-
--- Obter definição de um item
-function ModelosItens:ObterDefinicao(itemId)
-    return definicoes[itemId]
-end
-
--- Verificar se um item existe
-function ModelosItens:ItemExiste(itemId)
-    return definicoes[itemId] ~= nil
-end
-
--- Obter lista de todos os itens disponíveis
-function ModelosItens:ObterListaItens()
-    local lista = {}
-    for itemId, definicao in pairs(definicoes) do
-        table.insert(lista, {
-            id = itemId,
-            nome = definicao.nome,
-            descricao = definicao.descricao,
-            categoria = definicao.categoria
-        })
-    end
-    return lista
-end
-
--- Obter lista de itens por categoria
-function ModelosItens:ObterItensPorCategoria(categoria)
-    local lista = {}
-    for itemId, definicao in pairs(definicoes) do
-        if definicao.categoria == categoria then
-            table.insert(lista, {
-                id = itemId,
-                nome = definicao.nome,
-                descricao = definicao.descricao
-            })
-        end
-    end
-    return lista
-end
-
--- Obter modelo de um item
-function ModelosItens:ObterModelo(itemId, distancia)
-    -- Verificar se o item existe
-    if not definicoes[itemId] then
-        warn("ModelosItens: Item não encontrado: " .. itemId)
-        return nil
-    end
-    
-    -- Usar distância padrão se não especificada
-    distancia = distancia or 10
-    
-    -- Verificar cache primeiro
-    if cacheModelos[itemId] then
-        -- Atualizar estatísticas de uso
-        cacheTempoUso[itemId] = tick()
-        cacheContadorUso[itemId] = (cacheContadorUso[itemId] or 0) + 1
-        
-        return cacheModelos[itemId]:Clone()
-    end
-    
-    -- Verificar se já está em processo de carregamento
-    if carregamentoPendente[itemId] then
-        -- Esperar até que o carregamento termine (com timeout)
-        local tempoInicio = tick()
-        while carregamentoPendente[itemId] and (tick() - tempoInicio) < 5 do
-            wait(0.1)
-        end
-        
-        -- Verificar novamente o cache após espera
-        if cacheModelos[itemId] then
-            cacheTempoUso[itemId] = tick()
-            cacheContadorUso[itemId] = (cacheContadorUso[itemId] or 0) + 1
-            return cacheModelos[itemId]:Clone()
-        end
-    end
-    
-    -- Marcar como em carregamento
-    carregamentoPendente[itemId] = true
-    
-    -- Carregar modelo com LOD apropriado
-    local modelo = CarregarModeloComLOD(itemId, distancia)
-    
-    -- Validar modelo
-    local valido, mensagem = ValidarModelo(modelo, itemId)
-    if not valido then
-        warn("ModelosItens: Modelo inválido para " .. itemId .. ": " .. mensagem)
-        -- Tentar criar fallback
-        modelo = CriarModeloFallback(itemId)
-        valido, mensagem = ValidarModelo(modelo, itemId)
-        
-        if not valido then
-            warn("ModelosItens: Fallback também inválido para " .. itemId)
-            carregamentoPendente[itemId] = false
-            return nil
-        end
-    end
-    
-    -- Adicionar ao cache
-    cacheModelos[itemId] = modelo
-    cacheTempoUso[itemId] = tick()
-    cacheContadorUso[itemId] = 1
-    
-    -- Marcar como não mais em carregamento
-    carregamentoPendente[itemId] = false
-    
-    -- Limpar cache se necessário
-    if #cacheModelos > MAX_CACHE_SIZE then
-        spawn(LimparCache)
-    end
-    
-    return modelo:Clone()
-end
-
--- Obter configurações de colocação de um item
-function ModelosItens:ObterConfiguracoesColocacao(itemId)
-    local definicao = definicoes[itemId]
-    if not definicao or not definicao.modelo.colocacao then
-        return {
-            superficie = {"terreno"},
-            angulos = {0, 90, 180, 270},
-            altura = 0,
-            distanciaMinima = 1
+            -- Efeitos especiais
+            efeitos = {
+                particulas = {
+                    tipo = "agua",
+                    taxa = 20,
+                    tamanho = 0.1,
+                    cor = Color3.fromRGB(255, 255, 255),
+                    velocidade = 3,
+                    aceleracao = Vector3.new(0, -10, 0)
+                },
+                som = {
+                    id = "rbxassetid://169380495", -- Som de água corrente
+                    volume = 0.5,
+                    alcance = 15,
+                    looping = true
+                },
+                brilho = {
+                    ativo = true,
+                    cor = Color3.fromRGB(200, 220, 255),
+                    intensidade = 0.2,
+                    alcance = 5
+                }
+            }
         }
-    end
-    
-    return definicao.modelo.colocacao
-end
+    },
 
--- Obter tamanho e offset de um item
-function ModelosItens:ObterTamanhoEOffset(itemId)
-    local definicao = definicoes[itemId]
-    if not definicao then
-        return Vector3.new(1, 1, 1), Vector3.new(0, 0.5, 0)
-    end
-    
-    return definicao.modelo.tamanho, definicao.modelo.offset
-end
+    -- Luminária de Jardim
+    luminaria_jardim = {
+        nome = "Luminária de Jardim",
+        descricao = "Ilumina seu jardim com um brilho aconchegante.",
+        categoria = CATEGORIAS.DECORACOES,
+        preco = 120,
 
--- Verificar se um item é rotacionável
-function ModelosItens:EhRotacionavel(itemId)
-    local definicao = definicoes[itemId]
-    if not definicao then return true end
-    
-    return definicao.modelo.rotacionavel
-end
+        -- Configurações do modelo 3D
+        modelo = {
+            path = "luminaria_jardim_v1",
+            versao = "1.0.0",
+            tamanho = Vector3.new(0.5, 1.5, 0.5),
+            offset = Vector3.new(0, 0.75, 0),
+            rotacionavel = true,
+            rotacaoPadrao = CFrame.Angles(0, 0, 0),
 
--- Obter rotação padrão de um item
-function ModelosItens:ObterRotacaoPadrao(itemId)
-    local definicao = definicoes[itemId]
-    if not definicao or not definicao.modelo.rotacaoPadrao then
-        return CFrame.Angles(0, 0, 0)
-    end
-    
-    return definicao.modelo.rotacaoPadrao
-end
+            -- Materiais e texturas
+            materiais = {
+                poste = {
+                    material = Enum.Material.Metal,
+                    cor = Color3.fromRGB(40, 40, 40),
+                    textura = "rbxassetid://6797381223",
+                    propriedades = {
+                        Roughness = 0.5,
+                        Metalness = 0.8
+                    }
+                },
+                vidro = {
+                    material = Enum.Material.Glass,
+                    cor = Color3.fromRGB(255, 240, 200),
+                    textura = "rbxassetid://6797381323",
+                    propriedades = {
+                        Roughness = 0.1,
+                        Metalness = 0,
+                        Transparency = 0.5,
+                        Reflectance = 0.2
+                    }
+                }
+            },
 
--- Obter interações disponíveis para um item
-function ModelosItens:ObterInteracoes(itemId)
-    local definicao = definicoes[itemId]
-    if not definicao or not definicao.modelo.interacoes then
-        return {}
-    end
-    
-    return definicao.modelo.interacoes
-end
+            -- Configurações de LOD
+            lod = {
+                alta = {
+                    path = "luminaria_jardim_v1_lod0",
+                    triangulos = 1200,
+                    texturaResolucao = 512
+                },
+                media = {
+                    path = "luminaria_jardim_v1_lod1",
+                    triangulos = 600,
+                    texturaResolucao = 256
+                },
+                baixa = {
+                    path = "luminaria_jardim_v1_lod2",
+                    triangulos = 300,
+                    texturaResolucao = 128
+                },
+                muito_baixa = {
+                    path = "luminaria_jardim_v1_lod3",
+                    triangulos = 150,
+                    texturaResolucao = 64
+                }
+            },
 
--- Obter versão de um modelo
-function ModelosItens:ObterVersaoModelo(itemId)
-    local definicao = definicoes[itemId]
-    if not definicao then return "0.0.0" end
-    
-    return definicao.modelo.versao
-end
+            -- Configurações de fallback
+            fallback = {
+                tipo = "composto",
+                componentes = {
+                    base = {
+                        tipo = "cilindro",
+                        tamanho = Vector3.new(0.5, 0.1, 0.5),
+                        posicao = Vector3.new(0, 0.05, 0),
+                        cor = Color3.fromRGB(40, 40, 40),
+                        material = Enum.Material.Metal
+                    },
+                    poste = {
+                        tipo = "cilindro",
+                        tamanho = Vector3.new(0.1, 1.2, 0.1),
+                        posicao = Vector3.new(0, 0.7, 0),
+                        cor = Color3.fromRGB(40, 40, 40),
+                        material = Enum.Material.Metal
+                    },
+                    lampada = {
+                        tipo = "esfera",
+                        tamanho = Vector3.new(0.4, 0.4, 0.4),
+                        posicao = Vector3.new(0, 1.4, 0),
+                        cor = Color3.fromRGB(255, 240, 200),
+                        material = Enum.Material.Glass,
+                        transparencia = 0.5
+                    }
+                }
+            },
 
--- Verificar se um modelo precisa de atualização
-function ModelosItens:PrecisaAtualizar(itemId, versaoAtual)
-    local definicao = definicoes[itemId]
-    if not definicao then return false end
-    
-    -- Comparar versões (simplificado)
-    return definicao.modelo.versao ~= versaoAtual
-end
+            -- Configurações de física
+            fisica = {
+                massa = 20,
+                tipo = "mesh",
+                anchored = true,
+                canCollide = true
+            },
 
--- Limpar cache de um item específico
-function ModelosItens:LimparCacheItem(itemId)
-    if cacheModelos[itemId] then
-        cacheModelos[itemId] = nil
-        cacheTempoUso[itemId] = nil
-        cacheContadorUso[itemId] = nil
-        return true
-    end
-    return false
-end
+            -- Configurações de colocação
+            colocacao = {
+                superficie = {"terreno", "plataforma", "grama"},
+                angulos = {0},
+                altura = 0,
+                distanciaMinima = 0.5
+            },
 
--- Limpar todo o cache
-function ModelosItens:LimparTodoCache()
-    cacheModelos = {}
-    cacheTempoUso = {}
-    cacheContadorUso = {}
-    return true
-end
+            -- Efeitos especiais
+            efeitos = {
+                brilho = {
+                    ativo = true,
+                    cor = Color3.fromRGB(255, 240, 200),
+                    intensidade = 1,
+                    alcance = 12
+                },
+                ciclo = {
+                    ativo = true,
+                    tipo = "dia_noite",
+                    intensidadeDia = 0,
+                    intensidadeNoite = 1
+                }
+            }
+        }
+    },
 
--- Obter estatísticas do sistema
-function ModelosItens:ObterEstatisticas()
-    local numItensCache = 0
-    for _ in pairs(cacheModelos) do
-        numItensCache = numItensCache + 1
-    end
-    
-    return {
-        versaoSistema = VERSAO_SISTEMA,
-        numItensDefinidos = #definicoes,
-        numItensEmCache = numItensCache,
-        maxCacheSize = MAX_CACHE_SIZE,
-        tempoCacheSeg = TEMPO_CACHE
-    }
-end
+    -- Banco de Parque
+    banco_parque = {
+        nome = "Banco de Parque",
+        descricao = "Um banco confortável para relaxar ao ar livre.",
+        categoria = CATEGORIAS.DECORACOES,
+        preco = 150,
 
--- Inicialização
-do
-    print("ModelosItens: Inicializando sistema de modelos 3D v" .. VERSAO_SISTEMA)
-    
-    -- Verificar pastas necessárias
-    if not PASTA_MODELOS then
-        PASTA_MODELOS = Instance.new("Folder")
-        PASTA_MODELOS.Name = "Modelos"
-        PASTA_MODELOS.Parent = ServerStorage
-        warn("ModelosItens: Pasta de modelos não encontrada, criando pasta vazia")
-    end
-    
-    if not PASTA_MODELOS_FALLBACK then
-        PASTA_MODELOS_FALLBACK = Instance.new("Folder")
-        PASTA_MODELOS_FALLBACK.Name = "ModelosFallback"
-        PASTA_MODELOS_FALLBACK.Parent = ServerStorage
-        warn("ModelosItens: Pasta de modelos fallback não encontrada, criando pasta vazia")
-    end
-    
-    -- Configurar limpeza periódica de cache
-    spawn(function()
-        while true do
-            wait(60) -- Verificar a cada minuto
-            LimparCache()
-        end
-    end)
-    
-    -- Pré-carregar modelos comuns
-    spawn(function()
-        wait(5) -- Esperar um pouco para o jogo inicializar
-        PreCarregarModelosComuns()
-    end)
-    
-    print("ModelosItens: Sistema inicializado com " .. #definicoes .. " definições de itens")
-end
+        -- Configurações do modelo 3D
+        modelo = {
+            path = "banco_parque_v1",
+            versao = "1.0.0",
+            tamanho = Vector3.new(2.5, 1, 1),
+            offset = Vector3.new(0, 0.5, 0),
+            rotacionavel = true,
+            rotacaoPadrao = CFrame.Angles(0, 0, 0),
 
-return ModelosItens
+            -- Materiais e texturas
+            materiais = {
+                madeira = {
+                    material = Enum.Material.Wood,
+                    cor = Color3.fromRGB(120, 90, 60),
+                    textura = "rbxassetid://6797381423",
+                    propriedades = {
+                        Roughness = 0.8,
+                        Metalness = 0
+                    }
+                },
+                metal = {
+                    material = Enum.Material.Metal,
+                    cor = Color3.fromRGB(80, 80, 80),
+                    textura = "rbxassetid://6797381523",
+                    propriedades = {
+                        Roughness = 0.6,
+                        Metalness = 0.7
+                    }
+                }
+            },
+
+            -- Configurações de LOD
+            lod = {
+                alta = {
+                    path = "banco_parque_v1_lod0",
+                    triangulos = 2000,
+                    texturaResolucao = 512
+                },
+                media = {
+                    path = "banco_parque_v1_lod1",
+                    triangulos = 1000,
+                    texturaResolucao = 256
+                },
+                baixa = {
+                    path = "banco_parque_v1_lod2",
+                    triangulos = 500,
+                    texturaResolucao = 128
+                },
+                muito_baixa = {
+                    path = "banco_parque_v1_lod3",
+                    triangulos = 200,
+                    texturaResolucao = 64
+                }
+            },
+
+            -- Configurações de fallback
+            fallback = {
+                tipo = "composto",
+                componentes = {
+                    assento = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(2.5, 0.1, 0.8),
+                        posicao = Vector3.new(0, 0.5, 0),
+                        cor = Color3.fromRGB(120, 90, 60),
+                        material = Enum.Material.Wood
+                    },
+                    encosto = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(2.5, 0.6, 0.1),
+                        posicao = Vector3.new(0, 0.8, -0.4),
+                        cor = Color3.fromRGB(120, 90, 60),
+                        material = Enum.Material.Wood
+                    },
+                    perna1 = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(0.1, 0.5, 0.6),
+                        posicao = Vector3.new(1, 0.25, 0),
+                        cor = Color3.fromRGB(80, 80, 80),
+                        material = Enum.Material.Metal
+                    },
+                    perna2 = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(0.1, 0.5, 0.6),
+                        posicao = Vector3.new(-1, 0.25, 0),
+                        cor = Color3.fromRGB(80, 80, 80),
+                        material = Enum.Material.Metal
+                    }
+                }
+            },
+
+            -- Configurações de física
+            fisica = {
+                massa = 80,
+                tipo = "mesh",
+                anchored = true,
+                canCollide = true
+            },
+
+            -- Configurações de colocação
+            colocacao = {
+                superficie = {"terreno", "plataforma", "piso"},
+                angulos = {0, 90, 180, 270},
+                altura = 0,
+                distanciaMinima = 1
+            },
+
+            -- Interações
+            interacoes = {
+                sentarEm = true,
+                posicoesSentar = {
+                    Vector3.new(-0.8, 0.6, 0),
+                    Vector3.new(0, 0.6, 0),
+                    Vector3.new(0.8, 0.6, 0)
+                }
+            }
+        }
+    },
+
+    -- Caixa de Correio
+    caixa_correio = {
+        nome = "Caixa de Correio",
+        descricao = "Uma caixa de correio decorativa para sua ilha.",
+        categoria = CATEGORIAS.DECORACOES,
+        preco = 70,
+
+        -- Configurações do modelo 3D
+        modelo = {
+            path = "caixa_correio_v1",
+            versao = "1.0.0",
+            tamanho = Vector3.new(0.6, 1.2, 0.6),
+            offset = Vector3.new(0, 0.6, 0),
+            rotacionavel = true,
+            rotacaoPadrao = CFrame.Angles(0, 0, 0),
+
+            -- Materiais e texturas
+            materiais = {
+                metal = {
+                    material = Enum.Material.Metal,
+                    cor = Color3.fromRGB(50, 120, 180),
+                    textura = "rbxassetid://6797381623",
+                    propriedades = {
+                        Roughness = 0.5,
+                        Metalness = 0.8
+                    }
+                },
+                poste = {
+                    material = Enum.Material.Wood,
+                    cor = Color3.fromRGB(120, 100, 80),
+                    textura = "rbxassetid://6797381723",
+                    propriedades = {
+                        Roughness = 0.8,
+                        Metalness = 0
+                    }
+                }
+            },
+
+            -- Configurações de LOD
+            lod = {
+                alta = {
+                    path = "caixa_correio_v1_lod0",
+                    triangulos = 1000,
+                    texturaResolucao = 512
+                },
+                media = {
+                    path = "caixa_correio_v1_lod1",
+                    triangulos = 500,
+                    texturaResolucao = 256
+                },
+                baixa = {
+                    path = "caixa_correio_v1_lod2",
+                    triangulos = 250,
+                    texturaResolucao = 128
+                },
+                muito_baixa = {
+                    path = "caixa_correio_v1_lod3",
+                    triangulos = 100,
+                    texturaResolucao = 64
+                }
+            },
+
+            -- Configurações de fallback
+            fallback = {
+                tipo = "composto",
+                componentes = {
+                    poste = {
+                        tipo = "cilindro",
+                        tamanho = Vector3.new(0.1, 1, 0.1),
+                        posicao = Vector3.new(0, 0.5, 0),
+                        cor = Color3.fromRGB(120, 100, 80),
+                        material = Enum.Material.Wood
+                    },
+                    caixa = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(0.5, 0.3, 0.3),
+                        posicao = Vector3.new(0, 1, 0),
+                        cor = Color3.fromRGB(50, 120, 180),
+                        material = Enum.Material.Metal
+                    },
+                    bandeira = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(0.05, 0.15, 0.2),
+                        posicao = Vector3.new(0.3, 1.1, 0),
+                        cor = Color3.fromRGB(200, 50, 50),
+                        material = Enum.Material.Plastic
+                    }
+                }
+            },
+
+            -- Configurações de física
+            fisica = {
+                massa = 15,
+                tipo = "mesh",
+                anchored = true,
+                canCollide = true
+            },
+
+            -- Configurações de colocação
+            colocacao = {
+                superficie = {"terreno", "grama"},
+                angulos = {0, 90, 180, 270},
+                altura = 0,
+                distanciaMinima = 0.5
+            },
+
+            -- Interações
+            interacoes = {
+                abrir = true,
+                guardarItens = true,
+                capacidade = 5
+            }
+        }
+    },
+
+    -- Estátua Grande
+    estatua_grande = {
+        nome = "Estátua Grande",
+        descricao = "Uma estátua imponente para o centro da sua ilha.",
+        categoria = CATEGORIAS.DECORACOES,
+        preco = 300,
+
+        -- Configurações do modelo 3D
+        modelo = {
+            path = "estatua_grande_v1",
+            versao = "1.0.0",
+            tamanho = Vector3.new(2, 4, 2),
+            offset = Vector3.new(0, 2, 0),
+            rotacionavel = true,
+            rotacaoPadrao = CFrame.Angles(0, 0, 0),
+
+            -- Materiais e texturas
+            materiais = {
+                marmore = {
+                    material = Enum.Material.Marble,
+                    cor = Color3.fromRGB(220, 220, 220),
+                    textura = "rbxassetid://6797381823",
+                    propriedades = {
+                        Roughness = 0.3,
+                        Metalness = 0.1,
+                        Reflectance = 0.1
+                    }
+                },
+                base = {
+                    material = Enum.Material.Granite,
+                    cor = Color3.fromRGB(180, 180, 180),
+                    textura = "rbxassetid://6797381923",
+                    propriedades = {
+                        Roughness = 0.6,
+                        Metalness = 0.05
+                    }
+                }
+            },
+
+            -- Configurações de LOD
+            lod = {
+                alta = {
+                    path = "estatua_grande_v1_lod0",
+                    triangulos = 10000,
+                    texturaResolucao = 1024
+                },
+                media = {
+                    path = "estatua_grande_v1_lod1",
+                    triangulos = 5000,
+                    texturaResolucao = 512
+                },
+                baixa = {
+                    path = "estatua_grande_v1_lod2",
+                    triangulos = 2000,
+                    texturaResolucao = 256
+                },
+                muito_baixa = {
+                    path = "estatua_grande_v1_lod3",
+                    triangulos = 800,
+                    texturaResolucao = 128
+                }
+            },
+
+            -- Configurações de fallback
+            fallback = {
+                tipo = "composto",
+                componentes = {
+                    base = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(2, 0.5, 2),
+                        posicao = Vector3.new(0, 0.25, 0),
+                        cor = Color3.fromRGB(180, 180, 180),
+                        material = Enum.Material.Granite
+                    },
+                    corpo = {
+                        tipo = "cilindro",
+                        tamanho = Vector3.new(1, 3, 1),
+                        posicao = Vector3.new(0, 2, 0),
+                        cor = Color3.fromRGB(220, 220, 220),
+                        material = Enum.Material.Marble
+                    },
+                    cabeca = {
+                        tipo = "esfera",
+                        tamanho = Vector3.new(0.8, 0.8, 0.8),
+                        posicao = Vector3.new(0, 3.4, 0),
+                        cor = Color3.fromRGB(220, 220, 220),
+                        material = Enum.Material.Marble
+                    }
+                }
+            },
+
+            -- Configurações de física
+            fisica = {
+                massa = 500,
+                tipo = "mesh",
+                anchored = true,
+                canCollide = true
+            },
+
+            -- Configurações de colocação
+            colocacao = {
+                superficie = {"terreno", "plataforma"},
+                angulos = {0, 45, 90, 135, 180, 225, 270, 315},
+                altura = 0,
+                distanciaMinima = 2
+            },
+
+            -- Efeitos especiais
+            efeitos = {
+                envelhecimento = {
+                    ativo = true,
+                    textura = "rbxassetid://6797382023",
+                    intensidade = 0.2
+                },
+                particulas = {
+                    tipo = "poeira",
+                    taxa = 0.5,
+                    tamanho = 0.1,
+                    cor = Color3.fromRGB(220, 220, 220)
+                },
+                brilho = {
+                    ativo = true,
+                    cor = Color3.fromRGB(220, 220, 255),
+                    intensidade = 0.05,
+                    alcance = 8
+                }
+            }
+        }
+    },
+
+    -- NOVOS ITENS: MÓVEIS
+
+    -- Sofá Moderno
+    sofa_moderno = {
+        nome = "Sofá Moderno",
+        descricao = "Um sofá elegante e confortável para sua casa.",
+        categoria = CATEGORIAS.MOVEIS,
+        preco = 250,
+
+        -- Configurações do modelo 3D
+        modelo = {
+            path = "sofa_moderno_v1",
+            versao = "1.0.0",
+            tamanho = Vector3.new(3, 1, 1.2),
+            offset = Vector3.new(0, 0.5, 0),
+            rotacionavel = true,
+            rotacaoPadrao = CFrame.Angles(0, 0, 0),
+
+            -- Materiais e texturas
+            materiais = {
+                estofado = {
+                    material = Enum.Material.Fabric,
+                    cor = Color3.fromRGB(60, 100, 160),
+                    textura = "rbxassetid://6797382123",
+                    propriedades = {
+                        Roughness = 0.9,
+                        Metalness = 0
+                    }
+                },
+                estrutura = {
+                    material = Enum.Material.Wood,
+                    cor = Color3.fromRGB(80, 70, 60),
+                    textura = "rbxassetid://6797382223",
+                    propriedades = {
+                        Roughness = 0.7,
+                        Metalness = 0.1
+                    }
+                },
+                almofadas = {
+                    material = Enum.Material.Fabric,
+                    cor = Color3.fromRGB(240, 240, 240),
+                    textura = "rbxassetid://6797382323",
+                    propriedades = {
+                        Roughness = 1.0,
+                        Metalness = 0
+                    }
+                }
+            },
+
+            -- Configurações de LOD
+            lod = {
+                alta = {
+                    path = "sofa_moderno_v1_lod0",
+                    triangulos = 4000,
+                    texturaResolucao = 1024
+                },
+                media = {
+                    path = "sofa_moderno_v1_lod1",
+                    triangulos = 2000,
+                    texturaResolucao = 512
+                },
+                baixa = {
+                    path = "sofa_moderno_v1_lod2",
+                    triangulos = 1000,
+                    texturaResolucao = 256
+                },
+                muito_baixa = {
+                    path = "sofa_moderno_v1_lod3",
+                    triangulos = 500,
+                    texturaResolucao = 128
+                }
+            },
+
+            -- Configurações de fallback
+            fallback = {
+                tipo = "composto",
+                componentes = {
+                    assento = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(3, 0.4, 1.2),
+                        posicao = Vector3.new(0, 0.2, 0),
+                        cor = Color3.fromRGB(60, 100, 160),
+                        material = Enum.Material.Fabric
+                    },
+                    encosto = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(3, 0.8, 0.3),
+                        posicao = Vector3.new(0, 0.6, -0.45),
+                        cor = Color3.fromRGB(60, 100, 160),
+                        material = Enum.Material.Fabric
+                    },
+                    almofada1 = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(0.6, 0.2, 0.6),
+                        posicao = Vector3.new(-1, 0.5, 0),
+                        cor = Color3.fromRGB(240, 240, 240),
+                        material = Enum.Material.Fabric
+                    },
+                    almofada2 = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(0.6, 0.2, 0.6),
+                        posicao = Vector3.new(1, 0.5, 0),
+                        cor = Color3.fromRGB(240, 240, 240),
+                        material = Enum.Material.Fabric
+                    }
+                }
+            },
+
+            -- Configurações de física
+            fisica = {
+                massa = 100,
+                tipo = "mesh",
+                anchored = true,
+                canCollide = true
+            },
+
+            -- Configurações de colocação
+            colocacao = {
+                superficie = {"terreno", "plataforma", "piso"},
+                angulos = {0, 90, 180, 270},
+                altura = 0,
+                distanciaMinima = 1.5
+            },
+
+            -- Interações
+            interacoes = {
+                sentarEm = true,
+                posicoesSentar = {
+                    Vector3.new(-1, 0.6, 0),
+                    Vector3.new(0, 0.6, 0),
+                    Vector3.new(1, 0.6, 0)
+                }
+            }
+        }
+    },
+
+    -- Estante de Livros
+    estante_livros = {
+        nome = "Estante de Livros",
+        descricao = "Uma estante elegante para exibir seus livros e decorações.",
+        categoria = CATEGORIAS.MOVEIS,
+        preco = 180,
+
+        -- Configurações do modelo 3D
+        modelo = {
+            path = "estante_livros_v1",
+            versao = "1.0.0",
+            tamanho = Vector3.new(2, 3, 0.6),
+            offset = Vector3.new(0, 1.5, 0),
+            rotacionavel = true,
+            rotacaoPadrao = CFrame.Angles(0, 0, 0),
+
+            -- Materiais e texturas
+            materiais = {
+                madeira = {
+                    material = Enum.Material.Wood,
+                    cor = Color3.fromRGB(120, 80, 50),
+                    textura = "rbxassetid://6797382423",
+                    propriedades = {
+                        Roughness = 0.8,
+                        Metalness = 0
+                    }
+                },
+                livros = {
+                    material = Enum.Material.Plastic,
+                    cor = Color3.fromRGB(180, 180, 180),
+                    textura = "rbxassetid://6797382523",
+                    propriedades = {
+                        Roughness = 0.9,
+                        Metalness = 0
+                    }
+                }
+            },
+
+            -- Configurações de LOD
+            lod = {
+                alta = {
+                    path = "estante_livros_v1_lod0",
+                    triangulos = 3000,
+                    texturaResolucao = 1024
+                },
+                media = {
+                    path = "estante_livros_v1_lod1",
+                    triangulos = 1500,
+                    texturaResolucao = 512
+                },
+                baixa = {
+                    path = "estante_livros_v1_lod2",
+                    triangulos = 800,
+                    texturaResolucao = 256
+                },
+                muito_baixa = {
+                    path = "estante_livros_v1_lod3",
+                    triangulos = 400,
+                    texturaResolucao = 128
+                }
+            },
+
+            -- Configurações de fallback
+            fallback = {
+                tipo = "composto",
+                componentes = {
+                    base = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(2, 0.1, 0.6),
+                        posicao = Vector3.new(0, 0.05, 0),
+                        cor = Color3.fromRGB(120, 80, 50),
+                        material = Enum.Material.Wood
+                    },
+                    topo = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(2, 0.1, 0.6),
+                        posicao = Vector3.new(0, 2.95, 0),
+                        cor = Color3.fromRGB(120, 80, 50),
+                        material = Enum.Material.Wood
+                    },
+                    lateral1 = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(0.1, 3, 0.6),
+                        posicao = Vector3.new(-0.95, 1.5, 0),
+                        cor = Color3.fromRGB(120, 80, 50),
+                        material = Enum.Material.Wood
+                    },
+                    lateral2 = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(0.1, 3, 0.6),
+                        posicao = Vector3.new(0.95, 1.5, 0),
+                        cor = Color3.fromRGB(120, 80, 50),
+                        material = Enum.Material.Wood
+                    },
+                    prateleira1 = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(2, 0.05, 0.6),
+                        posicao = Vector3.new(0, 0.75, 0),
+                        cor = Color3.fromRGB(120, 80, 50),
+                        material = Enum.Material.Wood
+                    },
+                    prateleira2 = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(2, 0.05, 0.6),
+                        posicao = Vector3.new(0, 1.5, 0),
+                        cor = Color3.fromRGB(120, 80, 50),
+                        material = Enum.Material.Wood
+                    },
+                    prateleira3 = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(2, 0.05, 0.6),
+                        posicao = Vector3.new(0, 2.25, 0),
+                        cor = Color3.fromRGB(120, 80, 50),
+                        material = Enum.Material.Wood
+                    },
+                    livros1 = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(1.8, 0.6, 0.5),
+                        posicao = Vector3.new(0, 0.4, 0),
+                        cor = Color3.fromRGB(180, 180, 180),
+                        material = Enum.Material.Plastic
+                    },
+                    livros2 = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(1.8, 0.6, 0.5),
+                        posicao = Vector3.new(0, 1.1, 0),
+                        cor = Color3.fromRGB(180, 180, 180),
+                        material = Enum.Material.Plastic
+                    },
+                    livros3 = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(1.8, 0.6, 0.5),
+                        posicao = Vector3.new(0, 1.85, 0),
+                        cor = Color3.fromRGB(180, 180, 180),
+                        material = Enum.Material.Plastic
+                    },
+                    livros4 = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(1.8, 0.6, 0.5),
+                        posicao = Vector3.new(0, 2.6, 0),
+                        cor = Color3.fromRGB(180, 180, 180),
+                        material = Enum.Material.Plastic
+                    }
+                }
+            },
+
+            -- Configurações de física
+            fisica = {
+                massa = 150,
+                tipo = "mesh",
+                anchored = true,
+                canCollide = true
+            },
+
+            -- Configurações de colocação
+            colocacao = {
+                superficie = {"terreno", "plataforma", "piso"},
+                angulos = {0, 90, 180, 270},
+                altura = 0,
+                distanciaMinima = 1
+            },
+            
+            -- Interações
+            interacoes = {
+                guardarItens = true,
+                capacidade = 20
+            }
+        }
+    },
+
+    -- Cama Simples
+    cama_simples = {
+        nome = "Cama Simples",
+        descricao = "Uma cama confortável para descansar.",
+        categoria = CATEGORIAS.MOVEIS,
+        preco = 200,
+
+        -- Configurações do modelo 3D
+        modelo = {
+            path = "cama_simples_v1",
+            versao = "1.0.0",
+            tamanho = Vector3.new(2, 0.8, 3),
+            offset = Vector3.new(0, 0.4, 0),
+            rotacionavel = true,
+            rotacaoPadrao = CFrame.Angles(0, 0, 0),
+
+            -- Materiais e texturas
+            materiais = {
+                estrutura = {
+                    material = Enum.Material.Wood,
+                    cor = Color3.fromRGB(140, 100, 70),
+                    textura = "rbxassetid://6797382623",
+                    propriedades = {
+                        Roughness = 0.7,
+                        Metalness = 0
+                    }
+                },
+                colchao = {
+                    material = Enum.Material.Fabric,
+                    cor = Color3.fromRGB(240, 240, 240),
+                    textura = "rbxassetid://6797382723",
+                    propriedades = {
+                        Roughness = 1.0,
+                        Metalness = 0
+                    }
+                },
+                cobertor = {
+                    material = Enum.Material.Fabric,
+                    cor = Color3.fromRGB(70, 130, 180),
+                    textura = "rbxassetid://6797382823",
+                    propriedades = {
+                        Roughness = 0.9,
+                        Metalness = 0
+                    }
+                },
+                travesseiro = {
+                    material = Enum.Material.Fabric,
+                    cor = Color3.fromRGB(255, 255, 255),
+                    textura = "rbxassetid://6797382923",
+                    propriedades = {
+                        Roughness = 1.0,
+                        Metalness = 0
+                    }
+                }
+            },
+
+            -- Configurações de LOD
+            lod = {
+                alta = {
+                    path = "cama_simples_v1_lod0",
+                    triangulos = 3000,
+                    texturaResolucao = 1024
+                },
+                media = {
+                    path = "cama_simples_v1_lod1",
+                    triangulos = 1500,
+                    texturaResolucao = 512
+                },
+                baixa = {
+                    path = "cama_simples_v1_lod2",
+                    triangulos = 800,
+                    texturaResolucao = 256
+                },
+                muito_baixa = {
+                    path = "cama_simples_v1_lod3",
+                    triangulos = 400,
+                    texturaResolucao = 128
+                }
+            },
+
+            -- Configurações de fallback
+            fallback = {
+                tipo = "composto",
+                componentes = {
+                    base = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(2, 0.3, 3),
+                        posicao = Vector3.new(0, 0.15, 0),
+                        cor = Color3.fromRGB(140, 100, 70),
+                        material = Enum.Material.Wood
+                    },
+                    colchao = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(1.9, 0.2, 2.8),
+                        posicao = Vector3.new(0, 0.4, 0),
+                        cor = Color3.fromRGB(240, 240, 240),
+                        material = Enum.Material.Fabric
+                    },
+                    cobertor = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(1.9, 0.05, 1.4),
+                        posicao = Vector3.new(0, 0.525, 0.7),
+                        cor = Color3.fromRGB(70, 130, 180),
+                        material = Enum.Material.Fabric
+                    },
+                    travesseiro = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(0.6, 0.1, 0.4),
+                        posicao = Vector3.new(0, 0.55, -1.2),
+                        cor = Color3.fromRGB(255, 255, 255),
+                        material = Enum.Material.Fabric
+                    },
+                    cabeceira = {
+                        tipo = "bloco",
+                        tamanho = Vector3.new(2, 0.8, 0.1),
+                        posicao = Vector3.new(0, 0.7, -1.45),
+                        cor = Color3.fromRGB(140, 100, 70),
+                        material = Enum.Material.Wood
+                    }
+                }
+            },
+
+            -- Configurações de física
+            fisica = {
+                massa = 120,
+                tipo = "mesh",
+                anchored = true,
+                canCollide = true
+            },
+
+            -- Configurações de colocação
+            colocacao = {
+                superficie = {"terreno", "plataforma", "piso"},
+                angulos = {0, 90, 180, 270},
+                altura = 0,
+                distanciaMinima = 1.5
+            },
+
+            -- Interações
+            interacoes = {
+                deitar = true,
+                dormir = true,
+                recuperarEnergia = true
+            }
+        }
+    },
+
+    -- Mesa de Centro
+    mesa_centro = {
+        nome = "Mesa de Centro",
+        descricao = "Uma mesa elegante para sua sala de estar.",
+        categoria = CATEGORIAS.MOVEIS,
+        preco = 110,
+        
+        -- Configurações do modelo 3D
+        modelo = {
+            path = "mesa_centro_v1",
+            versao = "1.0.0",
+            tamanho = Vector3.new(1.5, 0.6, 1.5),
+            offset = Vector3.new(0, 0.3, 0),
+            rotacionavel = true,
+            rotacaoPadrao = CFrame.Angles(0, 0, 0),
+            
+            -- Materiais e texturas
+            materiais = {
+                tampo = {
+                    material = Enum.Material.Glass,
+                    cor = Color3.fromRGB(200, 200, 220),
+                    textura = "rbxassetid://6797383023",
+                    propriedades = {
+                        Roughness = 0.1,
+                        Metalness = 0,
+                        Transparency = 0.3,
+                        Reflectance = 0.2
+                    }
+                },
+                estrutura = {
+                    material = Enum.Material.Metal,
+                    cor = Color3.fromRGB(60, 60, 60),
+                    textura = "rbxassetid://6797383123",
+                    propriedades = {
+                        Roughness = 0.4,
+                        Metalness = 0.8
+                    }
+                }
+            },
+            
+            -- Configurações de LOD
+            lod = {
+                alta = {
+                    path = "mesa_centro_v1_lod0",
+                    triangulos = 1500,
+                    texturaResolucao = 512
+                },
+                media = {
+                    path = "mesa_centro_v1_lod1",
+                    triangulos = 750,
+                    texturaResolucao = 256
+                },
+                baixa = {
+                    path = "mesa_centro_v1_lod2",
+                    triangulos = 375,
+                    texturaResolucao = 128
+                },
+                muito_baixa = {
+                    path
